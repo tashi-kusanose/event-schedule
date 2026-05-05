@@ -48,13 +48,19 @@
     .remove-btn { position: absolute; top: 10px; right: 10px; background-color: transparent; color: var(--danger); border: 1px solid var(--danger); border-radius: 8px; padding: 6px; width: 36px; height: 36px; }
     
     .gantt-wrapper { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; -webkit-overflow-scrolling: touch; }
-    .gantt-grid { display: grid; min-width: 800px; border-bottom: 1px solid var(--border); }
-    .main-event-row { display: grid; min-width: 800px; height: 45px; }
-    .sub-event-row { display: grid; min-width: 800px; height: 38px; border-top: 1px dashed #f0eeec; }
-    .gantt-dates { background-color: var(--input-bg); font-weight: 500; text-align: center; font-size: 0.85em; color: var(--text-light); }
-    .gantt-cell { border-right: 1px dashed #f0eeec; padding: 8px 0; text-align: center; }
-    .event-bar { margin: 6px 2px; border-radius: 6px; font-size: 0.85em; padding: 4px 10px; display: flex; align-items: center; overflow: hidden; white-space: nowrap; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.1); font-weight: bold; }
+    .gantt-grid { display: grid; min-width: 800px; border-bottom: 1px dashed var(--border); }
     
+    /* ★行の高さを見切れないように微調整 */
+    .main-event-row { display: grid; min-width: 800px; height: 36px; border-bottom: 1px dashed #f0eeec; } 
+    .sub-event-row { display: grid; min-width: 800px; height: 26px; } 
+    
+    .gantt-dates { background-color: var(--input-bg); font-weight: 500; text-align: center; font-size: 0.85em; color: var(--text-light); border-bottom: 1px solid var(--border); }
+    .gantt-cell { border-right: 1px dashed #f0eeec; padding: 6px 0; text-align: center; }
+    
+    /* ★バーの上下の余白と内側の余白(padding)を調整して文字を綺麗に収める */
+    .event-bar { margin: 3px 2px; border-radius: 4px; font-size: 0.85em; padding: 4px 8px; display: flex; align-items: center; overflow: hidden; white-space: nowrap; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-weight: bold; line-height: 1.2; }
+    .sub-event-row .event-bar { margin: 2px 2px; font-size: 0.75em; padding: 4px 6px; }
+
     .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(92, 85, 82, 0.4); display: none; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(2px); padding: 15px; }
     .modal-overlay.active { display: flex; animation: fadeIn 0.3s ease; }
     .modal-content { background: var(--card-bg); padding: 25px 20px; border-radius: 16px; width: 100%; max-width: 500px; position: relative; max-height: 90vh; overflow-y: auto; }
@@ -81,7 +87,6 @@
     .mode-radio-label input { display: none; }
     .mode-radio-label:has(input:checked) { background: var(--primary); color: white; border-color: var(--primary); box-shadow: 0 4px 10px rgba(141, 169, 196, 0.3); }
 
-    /* ★ポップアップ内：Award部門タブのデザイン */
     .award-tab-wrapper { display: flex; overflow-x: auto; gap: 8px; margin-top: 15px; padding-bottom: 10px; border-bottom: 1px solid var(--border); -webkit-overflow-scrolling: touch; }
     .award-tab { padding: 6px 14px; background: var(--input-bg); border: 1px solid var(--border); border-radius: 20px; font-size: 0.8em; white-space: nowrap; cursor: pointer; font-weight: bold; color: var(--text-light); transition: 0.2s; }
     .award-tab.active { background: var(--primary); color: white; border-color: var(--primary); box-shadow: 0 2px 6px rgba(141, 169, 196, 0.3); }
@@ -248,7 +253,8 @@
       document.querySelectorAll('.gift-row-input').forEach(r => { const g = { type: r.querySelector('.gift-type').value, name: r.querySelector('.gift-name').value, coin: r.querySelector('.gift-coin').value, point: r.querySelector('.gift-point')?.value || '', randomItems: [] }; if(g.type==='ランダム') r.querySelectorAll('.random-item-row').forEach(rr => g.randomItems.push({ resultName: rr.querySelector('.random-result-name').value, point: rr.querySelector('.random-result-point').value })); ev.gifts.push(g); });
       const idx = events.findIndex(e => e.id === id); if(idx>-1) events[idx] = ev; else events.push(ev);
       const newPw = document.getElementById('newPassword').value; if (newPw.trim()) currentPassword = newPw.trim();
-      document.getElementById('loading-overlay').style.display = 'flex'; fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ password: currentPassword, events: events }) }).then(() => { alert('同期完了！'); location.reload(); });
+      const saveData = { password: currentPassword, events: events };
+      document.getElementById('loading-overlay').style.display = 'flex'; fetch(GAS_URL, { method: 'POST', body: JSON.stringify(saveData) }).then(() => { alert('同期完了！'); location.reload(); });
     }
 
     function deleteEvent() { if(!confirm('削除しますか？')) return; events = events.filter(e => e.id !== document.getElementById('eventId').value); fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ password: currentPassword, events: events }) }).then(() => location.reload()); }
@@ -269,25 +275,26 @@
         let mainHtml = ''; for(let i=0; i<days; i++) mainHtml += `<div class="gantt-cell" style="grid-column:${i+1};"></div>`;
         let dS = Math.max(1, new Date(ev.start).getMonth()+1 === currentMonth ? new Date(ev.start).getDate() : 1), dE = Math.min(days, new Date(ev.end).getMonth()+1 === currentMonth ? new Date(ev.end).getDate() : days);
         const evJ = JSON.stringify(ev).replace(/'/g, "&#39;").replace(/"/g, "&quot;"); const bg = APP_COLORS[ev.appName] || ev.color || '#8da9c4'; const tx = ev.isParticipating ? 'yellow' : 'white';
+        
         mainHtml += `<div class="event-bar" style="grid-column:${dS} / span ${dE-dS+1}; background:${bg}; color:${tx};" onclick="toggleSubEvents('sub-${ev.id}')"><span class="material-symbols-rounded" style="font-size:18px; margin-right:6px; background:rgba(255,255,255,0.3); border-radius:4px; padding:2px; color:white;" onclick='event.stopPropagation(); openEventModal(${evJ})'>info</span>${ev.name} ${ev.isParticipating ? '<span class="material-symbols-rounded" style="font-size:14px; margin-left:4px;">check_circle</span>' : ''}</div>`;
         main.innerHTML = mainHtml; row.appendChild(main);
         const subC = document.createElement('div'); subC.id = `sub-${ev.id}`; subC.style.display = 'none';
-        ev.subEvents.forEach(s => { const sS = new Date(s.start).getTime(), sE = new Date(s.end).getTime() + 86400000; if(sE < mS || sS > mE) return; const subR = document.createElement('div'); subR.className = 'sub-event-row'; subR.style.gridTemplateColumns = grid; let subH = ''; for(let i=0; i<days; i++) subH += `<div class="gantt-cell" style="grid-column:${i+1};"></div>`; let sdS = Math.max(1, new Date(s.start).getMonth()+1 === currentMonth ? new Date(s.start).getDate() : 1), sdE = Math.min(days, new Date(s.end).getMonth()+1 === currentMonth ? new Date(s.end).getDate() : days); const sJ = JSON.stringify(s).replace(/'/g, "&#39;").replace(/"/g, "&quot;"); subH += `<div class="event-bar" style="grid-column:${sdS} / span ${sdE-sdS+1}; background:${hexToRgba(bg,0.6)}; color:${tx};" onclick='openSubModal(${sJ}, "${bg}")'>[${s.type}] ${s.name}</div>`; subR.innerHTML = subH; subC.appendChild(subR); });
+        ev.subEvents.forEach(s => {
+          const sS = new Date(s.start).getTime(), sE = new Date(s.end).getTime() + 86400000; if(sE < mS || sS > mE) return;
+          const subR = document.createElement('div'); subR.className = 'sub-event-row'; subR.style.gridTemplateColumns = grid; let subH = ''; for(let i=0; i<days; i++) subH += `<div class="gantt-cell" style="grid-column:${i+1};"></div>`; let sdS = Math.max(1, new Date(s.start).getMonth()+1 === currentMonth ? new Date(s.start).getDate() : 1), sdE = Math.min(days, new Date(s.end).getMonth()+1 === currentMonth ? new Date(s.end).getDate() : days); const sJ = JSON.stringify(s).replace(/'/g, "&#39;").replace(/"/g, "&quot;");
+          subH += `<div class="event-bar" style="grid-column:${sdS} / span ${sdE-sdS+1}; background:${hexToRgba(bg,0.6)}; color:${tx};" onclick='openSubModal(${sJ}, "${bg}")'>[${s.type}] ${s.name}</div>`;
+          subR.innerHTML = subH; subC.appendChild(subR);
+        });
         if (ev.subEvents.length > 0) row.appendChild(subC); chart.appendChild(row);
       });
       if(count === 0) chart.innerHTML += '<p style="padding:40px 20px; color:var(--text-light); text-align:center;">条件に合うイベントがありません</p>';
     }
 
-    // ★概要モーダル：Awardポイントの横並びタブ表示
     function openEventModal(e) {
       let gH = (e.gifts && e.gifts.length > 0) ? '<h4>ギフト</h4><ul>' + e.gifts.map(g => `<li>${g.name} (${g.coin}c${g.type==='通常'?' / '+g.point+'pt':''})${g.type==='ランダム'?'<ul>'+g.randomItems.map(r=>`<li>${r.resultName}: ${r.point}pt</li>`).join('')+'</ul>':''}</li>`).join('') + '</ul>' : '';
-      
       let awardTabHtml = '';
       if(e.appName === 'エブリライブ' && e.awards) {
-        let tabs = '', panes = '';
-        const types = ['normal', 'model', 'music', 'voice', 'comedy', 'student'];
-        let firstType = null;
-        
+        let tabs = '', panes = ''; const types = ['normal', 'model', 'music', 'voice', 'comedy', 'student']; let firstType = null;
         types.forEach(t => {
           const list = Array.isArray(e.awards) ? (t==='normal'?e.awards:[]) : (e.awards[t]||[]);
           if (list.length > 0) {
@@ -298,23 +305,17 @@
         });
         if (tabs) awardTabHtml = `<h4 style="margin-top:20px; margin-bottom:5px;">Awardポイント</h4><div class="award-tab-wrapper">${tabs}</div><div class="award-panes" style="margin-top:10px;">${panes}</div>`;
       }
-      
       let partHtml = `<label style="display:flex; align-items:center; gap:8px; background:var(--input-bg); padding:12px 15px; border-radius:8px; border:2px solid ${e.isParticipating ? 'var(--primary)' : 'var(--border)'}; margin-bottom:15px; cursor:pointer;"><input type="checkbox" style="width:24px; height:24px;" ${e.isParticipating ? 'checked' : ''} onchange="toggleEventParticipation('${e.id}', this.checked, this)"><span style="font-weight:bold; font-size:1.1em; color:${e.isParticipating ? 'var(--primary)' : 'var(--text-main)'};">このイベントに参加する</span></label>`;
       document.getElementById('modalBody').innerHTML = `<h3>${e.name}</h3>${partHtml}<p>アプリ: ${e.appName}</p><p>期間: ${e.start} 〜 ${e.end}</p><div class="details-box">${e.rules || '概要なし'}</div>${awardTabHtml}${gH}`;
       document.getElementById('modalOverlay').classList.add('active');
     }
 
-    // ★Awardタブ切り替え用
-    window.switchAwardTab = function(type) {
-      document.querySelectorAll('.award-tab').forEach(t => t.classList.toggle('active', t.dataset.type === type));
-      document.querySelectorAll('.award-content-pane').forEach(p => p.classList.toggle('active', p.id === `pane-${type}`));
-    };
+    window.switchAwardTab = function(type) { document.querySelectorAll('.award-tab').forEach(t => t.classList.toggle('active', t.dataset.type === type)); document.querySelectorAll('.award-content-pane').forEach(p => p.classList.toggle('active', p.id === `pane-${type}`)); };
 
     function openSubModal(s, col) { document.getElementById('modalBody').innerHTML = `<h3 style="color:${col}">${s.name}</h3><p>期間: ${s.start} 〜 ${s.end}</p><div class="details-box">${s.details || '詳細なし'}</div>${s.img ? `<img src="${s.img}" class="modal-image">` : ''}`; document.getElementById('modalOverlay').classList.add('active'); }
     function closeModal(e) { if(!e || e.target.id === 'modalOverlay' || e.target.classList.contains('material-symbols-rounded')) document.getElementById('modalOverlay').classList.remove('active'); }
     function changeMonth(d) { currentMonth += d; if(currentMonth>12){currentMonth=1;currentYear++}else if(currentMonth<1){currentMonth=12;currentYear--} renderSchedule(); }
     function hexToRgba(h, a) { if(h==='#000000') return `rgba(0,0,0,${a})`; if(h==='#FF0000') return `rgba(255,0,0,${a})`; let r=parseInt(h.slice(1,3),16), g=parseInt(h.slice(3,5),16), b=parseInt(h.slice(5,7),16); return `rgba(${r},${g},${b},${a})`; }
-
     window.toggleEventParticipation = function(id, isP, chk) { if (!isAuthenticated) { const pw = prompt('パスワード:'); if (pw !== currentPassword) { alert('失敗'); chk.checked = !isP; return; } isAuthenticated = true; } const idx = events.findIndex(e => e.id === id); if(idx > -1) events[idx].isParticipating = isP; fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ password: currentPassword, events: events }) }).then(() => { renderSchedule(); const label = chk.parentElement; label.style.borderColor = isP ? 'var(--primary)' : 'var(--border)'; label.querySelector('span').style.color = isP ? 'var(--primary)' : 'var(--text-main)'; }); }
   </script>
 </body>
