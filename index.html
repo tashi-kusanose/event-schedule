@@ -24,7 +24,7 @@
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     .form-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px dashed var(--border); flex-wrap: wrap; gap: 10px; }
     .form-group { margin-bottom: 20px; width: 100%; }
-    .form-group label { display: block; margin-bottom: 8px; font-weight: 500; font-size: 0.95em; }
+    .form-group label.group-label { display: block; margin-bottom: 8px; font-weight: 500; font-size: 0.95em; }
     input[type="text"], input[type="date"], input[type="number"], input[type="password"], select, textarea { 
       width: 100%; padding: 12px; border: 1px solid var(--border); background-color: var(--input-bg); 
       border-radius: 8px; box-sizing: border-box; font-size: 16px; color: var(--text-main); font-family: inherit; transition: border-color 0.3s; 
@@ -63,13 +63,43 @@
     #loading-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(255,255,255,0.8); display:flex; flex-direction:column; justify-content:center; align-items:center; z-index: 2000; font-weight:bold; }
     .image-preview { margin-top: 8px; width: 100%; max-height: 200px; object-fit: contain; border-radius: 8px; border: 1px solid var(--border); display: none; }
     .modal-image { width: 100%; border-radius: 8px; margin-top: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .schedule-hint { text-align: center; font-size: 0.85em; color: var(--text-light); margin: -5px 0 15px 0; display: flex; align-items: center; justify-content: center; gap: 4px; }
     
-    /* スケジュールヒントのスタイル */
-    .schedule-hint { text-align: center; font-size: 0.85em; color: var(--text-light); margin: -10px 0 15px 0; display: flex; align-items: center; justify-content: center; gap: 4px; }
+    /* ★新しくなったフィルター（タップで色が濃くなるボタン式） */
+    .filter-btn { padding:8px; color:var(--text-main); background:transparent; border-radius:8px; transition:0.2s; border:none; display:flex; align-items:center; justify-content:center;}
+    .filter-btn.active-filter { color:var(--primary); background:rgba(141, 169, 196, 0.15); }
     
+    .filter-chip-label { display: block; cursor: pointer; }
+    .filter-chip-label input { display: none; /* 元のチェックボックスは隠す */ }
+    .chip-text {
+      display: block;
+      text-align: center;
+      padding: 12px 10px;
+      border-radius: 8px;
+      background-color: rgba(141, 169, 196, 0.15); /* 薄い色（未選択） */
+      color: var(--primary);
+      border: 1px solid rgba(141, 169, 196, 0.3);
+      font-weight: 500;
+      transition: all 0.2s;
+      user-select: none;
+    }
+    /* 選択された時は色が濃くなる（塗りつぶし） */
+    .filter-chip-label input:checked + .chip-text {
+      background-color: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+    
+    /* 編集画面用の古いチェックボックスデザイン */
+    .chk-label { display:flex; align-items:center; gap:8px; background:var(--input-bg); padding:10px 15px; border-radius:8px; border:1px solid var(--border); cursor:pointer; }
+    .chk-label input { width:20px; height:20px; margin:0; }
+
     @media (max-width: 600px) {
       .flex-row > * { flex: 1 1 100%; }
       .color-app-group { display: flex; gap: 10px; align-items: center; }
+      .name-part-group { display: flex; gap: 10px; align-items: center; }
+      .name-part-group input[type="text"] { flex: 3; }
+      .name-part-group .chk-label { flex: 1; margin: 0; justify-content: center; padding: 11px; }
     }
   </style>
 </head>
@@ -96,25 +126,33 @@
     <form id="eventForm">
       <input type="hidden" id="eventId">
       <div class="color-app-group flex-row">
-        <div class="form-group"><label>カラー</label><input type="color" id="eventColor" value="#8da9c4"></div>
-        <div class="form-group"><label>アプリ</label><input type="text" id="appName" placeholder="例: ツイキャス"></div>
+        <div class="form-group"><label class="group-label">カラー</label><input type="color" id="eventColor" value="#8da9c4"></div>
+        <div class="form-group"><label class="group-label">アプリ</label><input type="text" id="appName" placeholder="例: ツイキャス"></div>
       </div>
-      <div class="form-group"><label>イベント名</label><input type="text" id="eventName" required></div>
-      <div class="form-group"><label>期間</label>
+      
+      <div class="form-group">
+        <label class="group-label">イベント名</label>
+        <div class="name-part-group">
+          <input type="text" id="eventName" required>
+          <label class="chk-label"><input type="checkbox" id="isParticipating"> 参加</label>
+        </div>
+      </div>
+
+      <div class="form-group"><label class="group-label">期間</label>
         <div class="date-group"><input type="date" id="eventStart" required> <span>〜</span> <input type="date" id="eventEnd" required></div>
       </div>
-      <div class="form-group"><label>イベント概要・ルール</label><textarea id="eventRules" rows="3"></textarea></div>
-      <div class="form-group"><label>ラウンド / デイリーミッション</label>
+      <div class="form-group"><label class="group-label">イベント概要・ルール</label><textarea id="eventRules" rows="3"></textarea></div>
+      <div class="form-group"><label class="group-label">ラウンド / デイリーミッション</label>
         <div id="subEventsContainer" class="dynamic-list"></div>
         <button type="button" class="btn-secondary" onclick="addSubEvent()">+ ラウンド/デイリー追加</button>
       </div>
-      <div class="form-group"><label>指定ギフト</label>
+      <div class="form-group"><label class="group-label">指定ギフト</label>
         <div id="giftsContainer" class="dynamic-list"></div>
         <button type="button" class="btn-secondary" onclick="addGift()">+ ギフト追加</button>
       </div>
       
       <div class="form-group" style="background: var(--input-bg); padding: 15px; border-radius: 8px; margin-top: 30px; border: 1px dashed var(--primary);">
-        <label style="color: var(--primary); display:flex; align-items:center; gap:5px;">
+        <label style="color: var(--primary); display:flex; align-items:center; gap:5px;" class="group-label">
           <span class="material-symbols-rounded" style="font-size: 18px;">lock</span> パスワードの変更
         </label>
         <input type="text" id="newPassword" placeholder="新しいパスワードを入力 (空欄なら維持)">
@@ -125,15 +163,19 @@
   </div>
 
   <div id="view-section" class="content-section active">
-    <div class="schedule-header" style="display:flex; justify-content:space-between; align-items:center;">
-      <button onclick="changeMonth(-1)"><span class="material-symbols-rounded">chevron_left</span></button>
-      <h2 id="currentMonthLabel">2026年 5月</h2>
-      <button onclick="changeMonth(1)"><span class="material-symbols-rounded">chevron_right</span></button>
+    
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+      <div style="width: 40px;"></div>
+      <div style="display: flex; align-items: center; gap: 5px;">
+        <button onclick="changeMonth(-1)" style="background:transparent; color:var(--primary); padding:8px; border:none; display:flex; align-items:center; justify-content:center;"><span class="material-symbols-rounded">chevron_left</span></button>
+        <h2 id="currentMonthLabel" style="margin:0; font-size:1.3em; white-space:nowrap; display:flex; justify-content:center;">2026年 5月</h2>
+        <button onclick="changeMonth(1)" style="background:transparent; color:var(--primary); padding:8px; border:none; display:flex; align-items:center; justify-content:center;"><span class="material-symbols-rounded">chevron_right</span></button>
+      </div>
+      <button id="filterBtn" class="filter-btn" onclick="openFilterModal()"><span class="material-symbols-rounded">filter_list</span></button>
     </div>
     
     <div class="schedule-hint">
-      <span class="material-symbols-rounded" style="font-size: 18px;">touch_app</span>
-      イベント名tapで各ラウンド表示されます。
+      <span class="material-symbols-rounded" style="font-size: 18px;">touch_app</span>イベント名tapで各ラウンド表示されます。
     </div>
 
     <div class="gantt-wrapper"><div id="ganttChart"></div></div>
@@ -146,12 +188,43 @@
     </div>
   </div>
 
+  <div id="filterModalOverlay" class="modal-overlay" onclick="closeFilterModal(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <span class="material-symbols-rounded" style="position:absolute; top:15px; right:15px; cursor:pointer;" onclick="closeFilterModal(event)">close</span>
+      <h3 style="display:flex; align-items:center; gap:8px;"><span class="material-symbols-rounded">filter_alt</span> 表示を絞り込む</h3>
+      
+      <div class="form-group">
+        <label class="group-label">参加状況</label>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <label class="filter-chip-label">
+            <input type="checkbox" id="f-part" checked>
+            <span class="chip-text">参加する</span>
+          </label>
+          <label class="filter-chip-label">
+            <input type="checkbox" id="f-notpart" checked>
+            <span class="chip-text">未参加</span>
+          </label>
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <label class="group-label">アプリ別</label>
+        <div id="filterAppContainer" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"></div>
+      </div>
+      
+      <button class="btn-success" onclick="applyFilters()" style="margin-top:20px;">この条件で表示する</button>
+    </div>
+  </div>
+
   <script>
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbwyKJESyiJNR98mRyMphBKIU5NELeMIzIS5jmVFoJd5aNulHIT07gtl63MtKSUFub4E/exec';
     let currentPassword = '1234'; 
+    let isAuthenticated = false; 
     let events = [];
     let currentYear = new Date().getFullYear();
     let currentMonth = new Date().getMonth() + 1;
+
+    let activeFilters = { part: true, notPart: true, apps: [] };
 
     window.onload = function() {
       fetch(GAS_URL)
@@ -172,15 +245,64 @@
     };
 
     function switchTab(mode) {
-      if (mode === 'edit') {
+      if (mode === 'edit' && !isAuthenticated) {
         const pw = prompt('パスワードを入力してください:');
         if (pw !== currentPassword) { alert('認証失敗'); return; }
+        isAuthenticated = true;
       }
       document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       document.getElementById(mode + '-section').classList.add('active');
       document.getElementById('btn-' + mode).classList.add('active');
       if (mode === 'view') renderSchedule(); else updateEditSelect();
+    }
+
+    // ★アプリ一覧の出力も新しい「色が濃くなるボタン」デザインに修正
+    function openFilterModal() {
+      const container = document.getElementById('filterAppContainer');
+      const apps = [...new Set(events.map(e => e.appName).filter(Boolean))];
+      container.innerHTML = '';
+      apps.forEach(app => {
+        const checked = activeFilters.apps.length === 0 || activeFilters.apps.includes(app) ? 'checked' : '';
+        container.innerHTML += `
+          <label class="filter-chip-label">
+            <input type="checkbox" class="filter-app-chk" value="${app}" ${checked}>
+            <span class="chip-text">${app}</span>
+          </label>
+        `;
+      });
+      document.getElementById('f-part').checked = activeFilters.part;
+      document.getElementById('f-notpart').checked = activeFilters.notPart;
+      document.getElementById('filterModalOverlay').classList.add('active');
+    }
+
+    function closeFilterModal(e) {
+      if(!e || e.target.id === 'filterModalOverlay' || e.target.classList.contains('material-symbols-rounded')) {
+        document.getElementById('filterModalOverlay').classList.remove('active');
+      }
+    }
+
+    function applyFilters() {
+      activeFilters.part = document.getElementById('f-part').checked;
+      activeFilters.notPart = document.getElementById('f-notpart').checked;
+      const appChks = document.querySelectorAll('.filter-app-chk');
+      const selectedApps = Array.from(appChks).filter(chk => chk.checked).map(chk => chk.value);
+      
+      if (selectedApps.length === appChks.length || selectedApps.length === 0) {
+        activeFilters.apps = []; 
+      } else {
+        activeFilters.apps = selectedApps;
+      }
+      
+      const btn = document.getElementById('filterBtn');
+      if (!activeFilters.part || !activeFilters.notPart || activeFilters.apps.length > 0) {
+        btn.classList.add('active-filter');
+      } else {
+        btn.classList.remove('active-filter');
+      }
+
+      closeFilterModal();
+      renderSchedule();
     }
 
     function addSubEvent(type='ラウンド', name='', start='', end='', details='', imgData='') {
@@ -275,6 +397,7 @@
         id, color: document.getElementById('eventColor').value, appName: document.getElementById('appName').value,
         name: document.getElementById('eventName').value, start: document.getElementById('eventStart').value,
         end: document.getElementById('eventEnd').value, rules: document.getElementById('eventRules').value,
+        isParticipating: document.getElementById('isParticipating').checked,
         subEvents: [], gifts: []
       };
       if(!ev.name || !ev.start) return alert('必須項目を確認してください');
@@ -332,6 +455,7 @@
       document.getElementById('eventColor').value = e.color;
       document.getElementById('appName').value = e.appName;
       document.getElementById('eventName').value = e.name;
+      document.getElementById('isParticipating').checked = e.isParticipating || false;
       document.getElementById('eventStart').value = e.start;
       document.getElementById('eventEnd').value = e.end;
       document.getElementById('eventRules').value = e.rules;
@@ -359,10 +483,18 @@
       const mS = new Date(currentYear, currentMonth-1, 1).getTime();
       const mE = new Date(currentYear, currentMonth, 0, 23, 59, 59).getTime();
 
+      let visibleCount = 0;
+
       events.forEach(ev => {
+        const isPart = ev.isParticipating || false;
+        if (isPart && !activeFilters.part) return;
+        if (!isPart && !activeFilters.notPart) return;
+        if (activeFilters.apps.length > 0 && ev.appName && !activeFilters.apps.includes(ev.appName)) return;
+
         const eS = new Date(ev.start).getTime(), eE = new Date(ev.end).getTime() + 86400000;
         if(eE < mS || eS > mE) return;
 
+        visibleCount++;
         const row = document.createElement('div'); row.className = 'event-row-wrapper';
         
         const main = document.createElement('div'); main.className = 'main-event-row'; main.style.gridTemplateColumns = gridTemplate;
@@ -371,11 +503,11 @@
         
         let dS = Math.max(1, new Date(ev.start).getMonth()+1 === currentMonth ? new Date(ev.start).getDate() : 1);
         let dE = Math.min(days, new Date(ev.end).getMonth()+1 === currentMonth ? new Date(ev.end).getDate() : days);
-        const evJson = JSON.stringify(ev).replace(/'/g, "&#39;");
+        const evJson = JSON.stringify(ev).replace(/'/g, "&#39;").replace(/"/g, "&quot;");
         
         mainHtml += `<div class="event-bar" style="grid-row:1; grid-column:${dS} / span ${dE - dS + 1}; background:${ev.color};" onclick="toggleSubEvents('sub-${ev.id}')">
           <span class="material-symbols-rounded" style="font-size:18px; margin-right:6px; background:rgba(255,255,255,0.3); border-radius:4px; padding:2px;" onclick='event.stopPropagation(); openEventModal(${evJson})'>info</span>
-          ${ev.name}
+          ${ev.name} ${ev.isParticipating ? '<span class="material-symbols-rounded" style="font-size:14px; margin-left:4px;">check_circle</span>' : ''}
         </div>`;
         main.innerHTML = mainHtml;
         row.appendChild(main);
@@ -394,22 +526,64 @@
           
           let sdS = Math.max(1, new Date(s.start).getMonth()+1 === currentMonth ? new Date(s.start).getDate() : 1);
           let sdE = Math.min(days, new Date(s.end).getMonth()+1 === currentMonth ? new Date(s.end).getDate() : days);
-          const sJson = JSON.stringify(s).replace(/'/g, "&#39;");
+          const sJson = JSON.stringify(s).replace(/'/g, "&#39;").replace(/"/g, "&quot;");
           subHtml += `<div class="event-bar" style="grid-row:1; grid-column:${sdS} / span ${sdE - sdS + 1}; background:${hexToRgba(ev.color,0.6)};" onclick='openSubModal(${sJson}, "${ev.color}")'>[${s.type}] ${s.name}</div>`;
           subR.innerHTML = subHtml;
           subContainer.appendChild(subR);
         });
         
-        if (ev.subEvents.length > 0) {
-          row.appendChild(subContainer);
-        }
+        if (ev.subEvents.length > 0) row.appendChild(subContainer);
         chart.appendChild(row);
       });
+
+      if(visibleCount === 0) {
+        chart.innerHTML += '<p style="padding:40px 20px; color:var(--text-light); text-align:center;">条件に合うイベントがありません</p>';
+      }
+    }
+
+    window.toggleEventParticipation = function(id, isParticipating, checkboxElem) {
+      if (!isAuthenticated) {
+        const pw = prompt('保存権限の確認です。パスワードを入力してください:');
+        if (pw !== currentPassword) {
+          alert('認証失敗');
+          checkboxElem.checked = !isParticipating; 
+          return;
+        }
+        isAuthenticated = true;
+      }
+      
+      const idx = events.findIndex(e => e.id === id);
+      if(idx > -1) events[idx].isParticipating = isParticipating;
+
+      const saveData = { password: currentPassword, events: events };
+      document.getElementById('loading-overlay').style.display = 'flex';
+      fetch(GAS_URL, { method: 'POST', body: JSON.stringify(saveData) })
+        .then(() => {
+          document.getElementById('loading-overlay').style.display = 'none';
+          renderSchedule(); 
+          
+          const label = checkboxElem.parentElement;
+          label.style.borderColor = isParticipating ? 'var(--primary)' : 'var(--border)';
+          label.querySelector('span').style.color = isParticipating ? 'var(--primary)' : 'var(--text-main)';
+        })
+        .catch(() => {
+          alert('同期に失敗しました');
+          document.getElementById('loading-overlay').style.display = 'none';
+          checkboxElem.checked = !isParticipating; 
+        });
     }
 
     function openEventModal(e) {
       let gH = e.gifts.map(g => `<li>${g.name} (${g.coin}c${g.type==='通常'?' / '+g.point+'pt':''})${g.type==='ランダム'?'<ul>'+g.randomItems.map(r=>`<li>${r.resultName}: ${r.point}pt</li>`).join('')+'</ul>':''}</li>`).join('');
-      document.getElementById('modalBody').innerHTML = `<h3>${e.name}</h3><p>アプリ: ${e.appName}</p><p>期間: ${e.start} 〜 ${e.end}</p><div class="details-box">${e.rules || '概要なし'}</div><h4>ギフト</h4><ul>${gH}</ul>`;
+      
+      let partHtml = `
+        <label style="display:flex; align-items:center; gap:8px; background:var(--input-bg); padding:12px 15px; border-radius:8px; border:2px solid ${e.isParticipating ? 'var(--primary)' : 'var(--border)'}; margin-bottom:15px; cursor:pointer; transition:0.2s;">
+          <input type="checkbox" style="width:24px; height:24px; cursor:pointer;" ${e.isParticipating ? 'checked' : ''} onchange="toggleEventParticipation('${e.id}', this.checked, this)">
+          <span style="font-weight:bold; font-size:1.1em; color:${e.isParticipating ? 'var(--primary)' : 'var(--text-main)'};">このイベントに参加する</span>
+        </label>
+      `;
+
+      document.getElementById('modalBody').innerHTML = `<h3>${e.name}</h3>${partHtml}<p>アプリ: ${e.appName}</p><p>期間: ${e.start} 〜 ${e.end}</p><div class="details-box">${e.rules || '概要なし'}</div><h4>ギフト</h4><ul>${gH}</ul>`;
       document.getElementById('modalOverlay').classList.add('active');
     }
 
@@ -423,7 +597,11 @@
       document.getElementById('modalOverlay').classList.add('active');
     }
 
-    function closeModal() { document.getElementById('modalOverlay').classList.remove('active'); }
+    function closeModal(e) {
+      if(!e || e.target.id === 'modalOverlay' || e.target.classList.contains('material-symbols-rounded')) {
+        document.getElementById('modalOverlay').classList.remove('active');
+      }
+    }
     function changeMonth(d) { currentMonth += d; if(currentMonth>12){currentMonth=1;currentYear++}else if(currentMonth<1){currentMonth=12;currentYear--} renderSchedule(); }
     function hexToRgba(h, a) { let r=parseInt(h.slice(1,3),16), g=parseInt(h.slice(3,5),16), b=parseInt(h.slice(5,7),16); return `rgba(${r},${g},${b},${a})`; }
   </script>
