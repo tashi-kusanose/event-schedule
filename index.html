@@ -75,6 +75,9 @@
     .chk-label { display:flex; align-items:center; gap:8px; background:var(--input-bg); padding:10px 15px; border-radius:8px; border:1px solid var(--border); cursor:pointer; }
     .chk-label input { width:20px; height:20px; margin:0; }
 
+    /* 各Awardコンテナのデザイン用 */
+    .award-group-box { background: var(--input-bg); padding: 10px; border-radius: 8px; margin-bottom: 15px; border: 1px dashed var(--border); }
+
     @media (max-width: 600px) {
       .flex-row > * { flex: 1 1 100%; }
       .color-app-group { display: flex; gap: 10px; align-items: center; }
@@ -132,16 +135,31 @@
       </div>
       <div class="form-group"><label class="group-label">イベント概要・ルール</label><textarea id="eventRules" rows="3"></textarea></div>
       
-      <div class="form-group" id="awardSection" style="display: none;">
-        <label class="group-label" style="color:var(--primary);">
-          <span class="material-symbols-rounded" style="font-size:16px; vertical-align:middle;">star</span> 
-          Awardポイント (エブリライブ専用)
+      <div id="everyliveAwardsWrapper" style="display: none;">
+        <label class="group-label" style="color:var(--primary); font-weight:bold; margin-top:25px; border-bottom:1px solid var(--primary); padding-bottom:5px;">
+          <span class="material-symbols-rounded" style="font-size:18px; vertical-align:middle;">stars</span> エブリライブ専用 Awardポイント
         </label>
-        <div id="awardContainer" class="dynamic-list"></div>
-        <button type="button" class="btn-secondary" onclick="addAward()">+ Awardポイント追加</button>
+        
+        <div class="award-group-box">
+          <label style="font-size:0.9em; font-weight:bold; color:var(--text-main);">◆ Awardポイント</label>
+          <div id="awardContainer_normal" class="dynamic-list" style="background:transparent; border:none; padding:5px 0;"></div>
+          <button type="button" class="btn-secondary" onclick="addAward('normal')">+ Award追加</button>
+        </div>
+
+        <div class="award-group-box">
+          <label style="font-size:0.9em; font-weight:bold; color:var(--text-main);">◆ モデル部門 Awardポイント</label>
+          <div id="awardContainer_model" class="dynamic-list" style="background:transparent; border:none; padding:5px 0;"></div>
+          <button type="button" class="btn-secondary" onclick="addAward('model')">+ モデル部門追加</button>
+        </div>
+
+        <div class="award-group-box">
+          <label style="font-size:0.9em; font-weight:bold; color:var(--text-main);">◆ 音楽部門 Awardポイント</label>
+          <div id="awardContainer_music" class="dynamic-list" style="background:transparent; border:none; padding:5px 0;"></div>
+          <button type="button" class="btn-secondary" onclick="addAward('music')">+ 音楽部門追加</button>
+        </div>
       </div>
 
-      <div class="form-group"><label class="group-label">ラウンド / デイリーミッション</label>
+      <div class="form-group" style="margin-top:25px;"><label class="group-label">ラウンド / デイリーミッション</label>
         <div id="subEventsContainer" class="dynamic-list"></div>
         <button type="button" class="btn-secondary" onclick="addSubEvent()">+ ラウンド/デイリー追加</button>
       </div>
@@ -162,7 +180,6 @@
   </div>
 
   <div id="view-section" class="content-section active">
-    
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
       <div style="width: 40px;"></div>
       <div style="display: flex; align-items: center; gap: 5px;">
@@ -172,11 +189,9 @@
       </div>
       <button id="filterBtn" class="filter-btn" onclick="openFilterModal()"><span class="material-symbols-rounded">filter_list</span></button>
     </div>
-    
     <div class="schedule-hint">
       <span class="material-symbols-rounded" style="font-size: 18px;">touch_app</span>イベント名tapで各ラウンド表示されます。
     </div>
-
     <div class="gantt-wrapper"><div id="ganttChart"></div></div>
   </div>
 
@@ -255,11 +270,12 @@
 
     function toggleAwardSection() {
       const app = document.getElementById('appName').value;
-      document.getElementById('awardSection').style.display = (app === 'エブリライブ') ? 'block' : 'none';
+      document.getElementById('everyliveAwardsWrapper').style.display = (app === 'エブリライブ') ? 'block' : 'none';
     }
 
-    function addAward(start = 1, end = 1, pts = '') {
-      const container = document.getElementById('awardContainer');
+    // ★指定されたタイプ（normal, model, music）のコンテナに追加する
+    function addAward(type = 'normal', start = 1, end = 1, pts = '') {
+      const container = document.getElementById(`awardContainer_${type}`);
       const row = document.createElement('div');
       row.className = 'sub-event-card award-row-input';
       let rankOptions = '';
@@ -403,17 +419,23 @@
         name: document.getElementById('eventName').value, start: document.getElementById('eventStart').value,
         end: document.getElementById('eventEnd').value, rules: document.getElementById('eventRules').value,
         isParticipating: document.getElementById('isParticipating').checked,
-        subEvents: [], gifts: [], awards: [] 
+        subEvents: [], gifts: [], 
+        awards: { normal: [], model: [], music: [] } // ★3種類をオブジェクトとして保存
       };
       if(!ev.name || !ev.start) return alert('必須項目を確認してください');
       if(!appNameStr) return alert('アプリを選択してください');
+
+      // ★3種類のAwardをそれぞれ取得して保存
       if (appNameStr === 'エブリライブ') {
-        document.querySelectorAll('.award-row-input').forEach(r => {
-          const s = parseInt(r.querySelector('.award-start').value), e = parseInt(r.querySelector('.award-end').value), p = r.querySelector('.award-pts').value;
-          if (p) ev.awards.push({ start: s, end: e, pts: p });
+        ['normal', 'model', 'music'].forEach(type => {
+          document.getElementById(`awardContainer_${type}`).querySelectorAll('.award-row-input').forEach(r => {
+            const s = parseInt(r.querySelector('.award-start').value), e = parseInt(r.querySelector('.award-end').value), p = r.querySelector('.award-pts').value;
+            if (p) ev.awards[type].push({ start: s, end: e, pts: p });
+          });
+          ev.awards[type].sort((a, b) => a.start - b.start);
         });
-        ev.awards.sort((a, b) => a.start - b.start);
       }
+
       document.querySelectorAll('.sub-event-row-input').forEach(r => {
         ev.subEvents.push({ 
           type: r.querySelector('.sub-type').value, name: r.querySelector('.sub-name').value, 
@@ -458,15 +480,30 @@
       document.getElementById('eventForm').reset();
       document.getElementById('subEventsContainer').innerHTML = '';
       document.getElementById('giftsContainer').innerHTML = '';
-      document.getElementById('awardContainer').innerHTML = ''; 
-      document.getElementById('awardSection').style.display = 'none';
+      // Awardコンテナの初期化
+      document.getElementById('awardContainer_normal').innerHTML = ''; 
+      document.getElementById('awardContainer_model').innerHTML = ''; 
+      document.getElementById('awardContainer_music').innerHTML = ''; 
+      document.getElementById('everyliveAwardsWrapper').style.display = 'none';
+
       if(!id) { document.getElementById('btn-delete').style.display='none'; return; }
       const e = events.find(ev => ev.id === id);
       document.getElementById('eventId').value = e.id;
       document.getElementById('eventColor').value = e.color;
       document.getElementById('appName').value = e.appName;
+      
       toggleAwardSection();
-      if (e.appName === 'エブリライブ' && e.awards) e.awards.forEach(a => addAward(a.start, a.end, a.pts));
+      if (e.appName === 'エブリライブ' && e.awards) {
+        // 古いデータ（配列）との互換性対応
+        if (Array.isArray(e.awards)) {
+          e.awards.forEach(a => addAward('normal', a.start, a.end, a.pts));
+        } else {
+          if (e.awards.normal) e.awards.normal.forEach(a => addAward('normal', a.start, a.end, a.pts));
+          if (e.awards.model) e.awards.model.forEach(a => addAward('model', a.start, a.end, a.pts));
+          if (e.awards.music) e.awards.music.forEach(a => addAward('music', a.start, a.end, a.pts));
+        }
+      }
+      
       document.getElementById('eventName').value = e.name;
       document.getElementById('isParticipating').checked = e.isParticipating || false;
       document.getElementById('eventStart').value = e.start;
@@ -482,7 +519,6 @@
       if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
     }
 
-    // ★描画機能（開始日の早い順にソート）
     function renderSchedule() {
       document.getElementById('currentMonthLabel').textContent = `${currentYear}年 ${currentMonth}月`;
       const days = new Date(currentYear, currentMonth, 0).getDate();
@@ -495,10 +531,7 @@
       const mS = new Date(currentYear, currentMonth-1, 1).getTime();
       const mE = new Date(currentYear, currentMonth, 0, 23, 59, 59).getTime();
 
-      // ★イベントを「開始日の早い順」に並び替える
-      const sortedEvents = [...events].sort((a, b) => {
-        return new Date(a.start) - new Date(b.start);
-      });
+      const sortedEvents = [...events].sort((a, b) => new Date(a.start) - new Date(b.start));
 
       let visibleCount = 0;
       sortedEvents.forEach(ev => {
@@ -584,15 +617,32 @@
       if(e.gifts && e.gifts.length > 0) {
         gH = '<h4>ギフト</h4><ul>' + e.gifts.map(g => `<li>${g.name} (${g.coin}c${g.type==='通常'?' / '+g.point+'pt':''})${g.type==='ランダム'?'<ul>'+g.randomItems.map(r=>`<li>${r.resultName}: ${r.point}pt</li>`).join('')+'</ul>':''}</li>`).join('') + '</ul>';
       }
+      
       let awardHtml = '';
-      if(e.appName === 'エブリライブ' && e.awards && e.awards.length > 0) {
-        awardHtml = '<h4 style="margin-bottom:8px; margin-top:15px; color:var(--text-main);">Awardポイント</h4><ul style="margin-top:0; padding-left:20px;">';
-        e.awards.forEach(a => {
-          if (a.start === a.end) awardHtml += `<li><strong>${a.start}位</strong>: ${a.pts}pt</li>`;
-          else awardHtml += `<li><strong>${a.start}位 〜 ${a.end}位</strong>: ${a.pts}pt</li>`;
-        });
-        awardHtml += '</ul>';
+      if(e.appName === 'エブリライブ' && e.awards) {
+        // ★3種類のAwardをそれぞれリスト化する関数
+        const buildList = (title, list) => {
+          if (!list || list.length === 0) return '';
+          let html = `<h4 style="margin-bottom:8px; margin-top:15px; color:var(--text-main);">${title}</h4><ul style="margin-top:0; padding-left:20px;">`;
+          list.forEach(a => {
+            if (a.start === a.end) html += `<li><strong>${a.start}位</strong>: ${a.pts}pt</li>`;
+            else html += `<li><strong>${a.start}位 〜 ${a.end}位</strong>: ${a.pts}pt</li>`;
+          });
+          html += '</ul>';
+          return html;
+        };
+
+        if (Array.isArray(e.awards)) {
+          // 古い形式のデータ
+          awardHtml += buildList('Awardポイント', e.awards);
+        } else {
+          // 新しい形式のデータ
+          awardHtml += buildList('Awardポイント', e.awards.normal);
+          awardHtml += buildList('モデル部門 Awardポイント', e.awards.model);
+          awardHtml += buildList('音楽部門 Awardポイント', e.awards.music);
+        }
       }
+
       let partHtml = `
         <label style="display:flex; align-items:center; gap:8px; background:var(--input-bg); padding:12px 15px; border-radius:8px; border:2px solid ${e.isParticipating ? 'var(--primary)' : 'var(--border)'}; margin-bottom:15px; cursor:pointer; transition:0.2s;">
           <input type="checkbox" style="width:24px; height:24px; cursor:pointer;" ${e.isParticipating ? 'checked' : ''} onchange="toggleEventParticipation('${e.id}', this.checked, this)">
