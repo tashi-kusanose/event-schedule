@@ -47,18 +47,13 @@
     .btn-danger { background-color: var(--danger); color: white; padding: 8px 12px; font-size: 0.9em; }
     .remove-btn { position: absolute; top: 10px; right: 10px; background-color: transparent; color: var(--danger); border: 1px solid var(--danger); border-radius: 8px; padding: 6px; width: 36px; height: 36px; }
     
-    /* ガントチャート（スケジュール）のスタイル修正 */
+    /* ガントチャート */
     .gantt-wrapper { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; -webkit-overflow-scrolling: touch; }
-    
-    /* ヘッダーと行に同じ min-width を適用してズレをなくす */
     .gantt-grid { display: grid; min-width: 800px; border-bottom: 1px solid var(--border); }
     .main-event-row { display: grid; min-width: 800px; height: 45px; }
     .sub-event-row { display: grid; min-width: 800px; height: 38px; border-top: 1px dashed #f0eeec; }
-    
     .gantt-dates { background-color: var(--input-bg); font-weight: 500; text-align: center; font-size: 0.85em; color: var(--text-light); }
     .gantt-cell { border-right: 1px dashed #f0eeec; padding: 8px 0; text-align: center; }
-    
-    /* イベントバーのデザイン */
     .event-bar { margin: 6px 2px; border-radius: 6px; color: white; font-size: 0.85em; padding: 4px 10px; display: flex; align-items: center; overflow: hidden; white-space: nowrap; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
     
     .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(92, 85, 82, 0.4); display: none; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(2px); padding: 15px; }
@@ -68,6 +63,10 @@
     #loading-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(255,255,255,0.8); display:flex; flex-direction:column; justify-content:center; align-items:center; z-index: 2000; font-weight:bold; }
     .image-preview { margin-top: 8px; width: 100%; max-height: 200px; object-fit: contain; border-radius: 8px; border: 1px solid var(--border); display: none; }
     .modal-image { width: 100%; border-radius: 8px; margin-top: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    
+    /* スケジュールヒントのスタイル */
+    .schedule-hint { text-align: center; font-size: 0.85em; color: var(--text-light); margin: -10px 0 15px 0; display: flex; align-items: center; justify-content: center; gap: 4px; }
+    
     @media (max-width: 600px) {
       .flex-row > * { flex: 1 1 100%; }
       .color-app-group { display: flex; gap: 10px; align-items: center; }
@@ -131,6 +130,12 @@
       <h2 id="currentMonthLabel">2026年 5月</h2>
       <button onclick="changeMonth(1)"><span class="material-symbols-rounded">chevron_right</span></button>
     </div>
+    
+    <div class="schedule-hint">
+      <span class="material-symbols-rounded" style="font-size: 18px;">touch_app</span>
+      イベント名tapで各ラウンド表示されます。
+    </div>
+
     <div class="gantt-wrapper"><div id="ganttChart"></div></div>
   </div>
 
@@ -335,7 +340,11 @@
       document.getElementById('btn-delete').style.display = 'inline-block';
     }
 
-    // ★ガントチャート描画の修正（ズレ解消）
+    function toggleSubEvents(id) {
+      const el = document.getElementById(id);
+      if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    }
+
     function renderSchedule() {
       document.getElementById('currentMonthLabel').textContent = `${currentYear}年 ${currentMonth}月`;
       const days = new Date(currentYear, currentMonth, 0).getDate();
@@ -343,7 +352,6 @@
       
       const gridTemplate = `repeat(${days}, 1fr)`;
       
-      // ヘッダー行
       const head = document.createElement('div'); head.className = 'gantt-grid gantt-dates'; head.style.gridTemplateColumns = gridTemplate;
       for(let i=1; i<=days; i++) head.innerHTML += `<div class="gantt-cell">${i}</div>`;
       chart.appendChild(head);
@@ -357,7 +365,6 @@
 
         const row = document.createElement('div'); row.className = 'event-row-wrapper';
         
-        // メインイベント行
         const main = document.createElement('div'); main.className = 'main-event-row'; main.style.gridTemplateColumns = gridTemplate;
         let mainHtml = '';
         for(let i=0; i<days; i++) mainHtml += `<div class="gantt-cell" style="grid-row:1; grid-column:${i+1};"></div>`;
@@ -365,11 +372,18 @@
         let dS = Math.max(1, new Date(ev.start).getMonth()+1 === currentMonth ? new Date(ev.start).getDate() : 1);
         let dE = Math.min(days, new Date(ev.end).getMonth()+1 === currentMonth ? new Date(ev.end).getDate() : days);
         const evJson = JSON.stringify(ev).replace(/'/g, "&#39;");
-        mainHtml += `<div class="event-bar" style="grid-row:1; grid-column:${dS} / span ${dE - dS + 1}; background:${ev.color};" onclick='openEventModal(${evJson})'>${ev.name}</div>`;
+        
+        mainHtml += `<div class="event-bar" style="grid-row:1; grid-column:${dS} / span ${dE - dS + 1}; background:${ev.color};" onclick="toggleSubEvents('sub-${ev.id}')">
+          <span class="material-symbols-rounded" style="font-size:18px; margin-right:6px; background:rgba(255,255,255,0.3); border-radius:4px; padding:2px;" onclick='event.stopPropagation(); openEventModal(${evJson})'>info</span>
+          ${ev.name}
+        </div>`;
         main.innerHTML = mainHtml;
         row.appendChild(main);
 
-        // サブイベント行
+        const subContainer = document.createElement('div');
+        subContainer.id = `sub-${ev.id}`;
+        subContainer.style.display = 'none';
+
         ev.subEvents.forEach(s => {
           const sS = new Date(s.start).getTime(), sE = new Date(s.end).getTime() + 86400000;
           if(sE < mS || sS > mE) return;
@@ -383,8 +397,12 @@
           const sJson = JSON.stringify(s).replace(/'/g, "&#39;");
           subHtml += `<div class="event-bar" style="grid-row:1; grid-column:${sdS} / span ${sdE - sdS + 1}; background:${hexToRgba(ev.color,0.6)};" onclick='openSubModal(${sJson}, "${ev.color}")'>[${s.type}] ${s.name}</div>`;
           subR.innerHTML = subHtml;
-          row.appendChild(subR);
+          subContainer.appendChild(subR);
         });
+        
+        if (ev.subEvents.length > 0) {
+          row.appendChild(subContainer);
+        }
         chart.appendChild(row);
       });
     }
