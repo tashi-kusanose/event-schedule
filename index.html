@@ -62,8 +62,12 @@
     #loading-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(255,255,255,0.8); display:flex; flex-direction:column; justify-content:center; align-items:center; z-index: 2000; font-weight:bold; }
     .image-preview { margin-top: 8px; width: 100%; max-height: 200px; object-fit: contain; border-radius: 8px; border: 1px solid var(--border); display: none; }
     .modal-image { width: 100%; border-radius: 8px; margin-top: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-    .schedule-hint { text-align: center; font-size: 0.85em; color: var(--text-light); margin: -5px 0 15px 0; display: flex; align-items: center; justify-content: center; gap: 4px; }
+    .schedule-hint { text-align: center; margin: -5px 0 15px 0; }
     
+    /* ★カレンダーの見方ボタン */
+    .guide-btn { background-color: var(--primary); color: white; padding: 8px 16px; border-radius: 20px; font-size: 0.85em; border: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; box-shadow: 0 2px 6px rgba(141, 169, 196, 0.4); font-weight: bold; transition: 0.2s; }
+    .guide-btn:active { transform: scale(0.95); }
+
     .filter-btn { padding:8px; color:var(--text-main); background:transparent; border-radius:8px; transition:0.2s; border:none; display:flex; align-items:center; justify-content:center;}
     .filter-btn.active-filter { color:var(--primary); background:rgba(141, 169, 196, 0.15); }
     .filter-chip-label { display: block; cursor: pointer; }
@@ -160,37 +164,31 @@
         <label class="group-label" style="color:var(--primary); font-weight:bold; margin-top:25px; border-bottom:1px solid var(--primary); padding-bottom:5px;">
           <span class="material-symbols-rounded" style="font-size:18px; vertical-align:middle;">stars</span> エブリライブ専用 Awardポイント
         </label>
-        
         <div class="award-group-box">
           <label style="font-size:0.9em; font-weight:bold; color:var(--text-main);">◆ Awardポイント</label>
           <div id="awardContainer_normal" class="dynamic-list" style="background:transparent; border:none; padding:5px 0;"></div>
           <button type="button" class="btn-secondary" onclick="addAward('normal')">+ Award追加</button>
         </div>
-
         <div class="award-group-box">
           <label style="font-size:0.9em; font-weight:bold; color:var(--text-main);">◆ モデル部門 Awardポイント</label>
           <div id="awardContainer_model" class="dynamic-list" style="background:transparent; border:none; padding:5px 0;"></div>
           <button type="button" class="btn-secondary" onclick="addAward('model')">+ モデル部門追加</button>
         </div>
-
         <div class="award-group-box">
           <label style="font-size:0.9em; font-weight:bold; color:var(--text-main);">◆ 音楽部門 Awardポイント</label>
           <div id="awardContainer_music" class="dynamic-list" style="background:transparent; border:none; padding:5px 0;"></div>
           <button type="button" class="btn-secondary" onclick="addAward('music')">+ 音楽部門追加</button>
         </div>
-
         <div class="award-group-box">
           <label style="font-size:0.9em; font-weight:bold; color:var(--text-main);">◆ 声優部門 Awardポイント</label>
           <div id="awardContainer_voice" class="dynamic-list" style="background:transparent; border:none; padding:5px 0;"></div>
           <button type="button" class="btn-secondary" onclick="addAward('voice')">+ 声優部門追加</button>
         </div>
-
         <div class="award-group-box">
           <label style="font-size:0.9em; font-weight:bold; color:var(--text-main);">◆ お笑い部門 Awardポイント</label>
           <div id="awardContainer_comedy" class="dynamic-list" style="background:transparent; border:none; padding:5px 0;"></div>
           <button type="button" class="btn-secondary" onclick="addAward('comedy')">+ お笑い部門追加</button>
         </div>
-
         <div class="award-group-box">
           <label style="font-size:0.9em; font-weight:bold; color:var(--text-main);">◆ 学生部門 Awardポイント</label>
           <div id="awardContainer_student" class="dynamic-list" style="background:transparent; border:none; padding:5px 0;"></div>
@@ -228,10 +226,47 @@
       </div>
       <button id="filterBtn" class="filter-btn" onclick="openFilterModal()"><span class="material-symbols-rounded">filter_list</span></button>
     </div>
+    
     <div class="schedule-hint">
-      <span class="material-symbols-rounded" style="font-size: 18px;">touch_app</span>イベント名tapで各ラウンド表示されます。
+      <button onclick="openGuideModal()" class="guide-btn">
+        <span class="material-symbols-rounded" style="font-size: 18px;">help</span> カレンダーの見方
+      </button>
     </div>
+
     <div class="gantt-wrapper"><div id="ganttChart"></div></div>
+  </div>
+
+  <div id="guideModalOverlay" class="modal-overlay" onclick="closeGuideModal(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <span class="material-symbols-rounded" style="position:absolute; top:15px; right:15px; cursor:pointer; color:var(--text-light);" onclick="closeGuideModal(event)">close</span>
+      <h3 style="display:flex; align-items:center; gap:8px; border-bottom:2px dashed var(--border); padding-bottom:10px; margin-top:0;">
+        <span class="material-symbols-rounded" style="color:var(--primary);">help</span> カレンダーの見方
+      </h3>
+      <ul style="padding-left: 20px; line-height: 1.8; font-size: 0.95em; color: var(--text-main); margin-bottom: 0;">
+        <li style="margin-bottom: 10px;">
+          <strong>イベント名タップ:</strong><br>
+          各ラウンドやデイリーミッションが下に展開表示されます。
+        </li>
+        <li style="margin-bottom: 10px;">
+          <strong><span class="material-symbols-rounded" style="font-size:18px; vertical-align:middle; background:rgba(141, 169, 196, 0.3); border-radius:4px; padding:2px; color:var(--primary);">info</span> infoマーク:</strong><br>
+          イベントの概要、ルール、Awardポイント、指定ギフトなどの詳細を確認できます。
+        </li>
+        <li style="margin-bottom: 10px;">
+          <strong><span class="material-symbols-rounded" style="font-size:18px; vertical-align:middle; color:#e0c000;">check_circle</span> チェックマーク:</strong><br>
+          参加予定のイベントです。<br>参加するイベントは文字色が<strong>黄色</strong>になります。
+        </li>
+        <li>
+          <strong>アプリ別カラー:</strong><br>
+          ・エブリライブ：水色<br>
+          ・TikTokライブ：黒色<br>
+          ・17ライブ：赤色<br>
+          <span style="font-size:0.85em; color:var(--text-light);">※各ラウンド・デイリーミッションは、親イベントより少し薄い色で表示されます。</span>
+        </li>
+      </ul>
+      <div style="text-align:center; margin-top:20px;">
+        <button class="btn-secondary" onclick="closeGuideModal()" style="width:auto; padding:8px 24px; font-weight:bold;">閉じる</button>
+      </div>
+    </div>
   </div>
 
   <div id="modalOverlay" class="modal-overlay" onclick="closeModal(event)">
@@ -353,7 +388,6 @@
       document.getElementById('everyliveAwardsWrapper').style.display = (app === 'エブリライブ') ? 'block' : 'none';
     }
 
-    // ★Award追加（部門名に対応）
     function addAward(type = 'normal', start = 1, end = 1, pts = '') {
       const container = document.getElementById(`awardContainer_${type}`);
       const row = document.createElement('div');
@@ -388,6 +422,16 @@
     function closeFilterModal(e) {
       if(!e || e.target.id === 'filterModalOverlay' || e.target.classList.contains('material-symbols-rounded')) {
         document.getElementById('filterModalOverlay').classList.remove('active');
+      }
+    }
+    
+    // ★カレンダーの見方モーダル用の関数
+    function openGuideModal() {
+      document.getElementById('guideModalOverlay').classList.add('active');
+    }
+    function closeGuideModal(e) {
+      if(!e || e.target.id === 'guideModalOverlay' || e.target.classList.contains('material-symbols-rounded')) {
+        document.getElementById('guideModalOverlay').classList.remove('active');
       }
     }
 
@@ -498,7 +542,7 @@
         end: document.getElementById('eventEnd').value, rules: document.getElementById('eventRules').value,
         isParticipating: document.getElementById('isParticipating').checked,
         subEvents: [], gifts: [], 
-        awards: { normal: [], model: [], music: [], voice: [], comedy: [], student: [] } // ★6種類
+        awards: { normal: [], model: [], music: [], voice: [], comedy: [], student: [] }
       };
       if(!ev.name || !ev.start) return alert('必須項目を確認してください');
       if(!appNameStr) return alert('アプリを選択してください');
@@ -624,6 +668,7 @@
           let sdS = Math.max(1, new Date(s.start).getMonth()+1 === currentMonth ? new Date(s.start).getDate() : 1);
           let sdE = Math.min(days, new Date(s.end).getMonth()+1 === currentMonth ? new Date(s.end).getDate() : days);
           const sJson = JSON.stringify(s).replace(/'/g, "&#39;").replace(/"/g, "&quot;");
+          
           subHtml += `<div class="event-bar" style="grid-row:1; grid-column:${sdS} / span ${sdE - sdS + 1}; background:${hexToRgba(bgColor,0.6)}; color:${textColor};" onclick='openSubModal(${sJson}, "${bgColor}")'>[${s.type}] ${s.name}</div>`;
           subR.innerHTML = subHtml; subContainer.appendChild(subR);
         });
