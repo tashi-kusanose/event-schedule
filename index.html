@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>イベント情報管理スケジュール</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
+  
+  <style>
+    :root {
+      --bg-color: #fcfaf8; --text-main: #5c5552; --text-light: #8d8581; --card-bg: #ffffff;
+      --primary: #8da9c4; --primary-hover: #7b96b0; --success: #98bfa1; --success-hover: #86ad8f;
+      --danger: #df9b9b; --danger-hover: #c98989; --border: #eae4df; --input-bg: #faf9f8; --random-bg: #f4f7fa;
+    }
+    body { font-family: 'Noto Sans JP', sans-serif; padding: 15px; background-color: var(--bg-color); color: var(--text-main); margin: 0; }
+    h2 { color: var(--text-main); font-weight: 500; display: flex; align-items: center; gap: 8px; font-size: 1.3em; }
+    .tab-container { display: flex; justify-content: center; gap: 15px; margin-bottom: 20px; }
+    .tab-btn { padding: 12px; background: var(--card-bg); color: var(--text-light); border: 2px solid transparent; border-radius: 50%; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 10px rgba(0,0,0,0.03); display: flex; align-items: center; justify-content: center; }
+    .tab-btn .material-symbols-rounded { font-size: 28px; }
+    .tab-btn.active { background: var(--primary); color: #fff; box-shadow: 0 4px 15px rgba(141, 169, 196, 0.4); }
+    .content-section { background: var(--card-bg); padding: 20px; border-radius: 16px; box-shadow: 0 8px 30px rgba(0,0,0,0.04); max-width: 1000px; margin: 0 auto; display: none; }
+    .content-section.active { display: block; animation: fadeIn 0.4s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .form-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px dashed var(--border); flex-wrap: wrap; gap: 10px; }
+    .form-group { margin-bottom: 20px; width: 100%; }
+    .form-group label { display: block; margin-bottom: 8px; font-weight: 500; font-size: 0.95em; }
+    input[type="text"], input[type="date"], input[type="number"], input[type="password"], select, textarea { 
+      width: 100%; padding: 12px; border: 1px solid var(--border); background-color: var(--input-bg); 
+      border-radius: 8px; box-sizing: border-box; font-size: 16px; color: var(--text-main); font-family: inherit; transition: border-color 0.3s; 
+    }
+    input:focus, textarea:focus, select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(141, 169, 196, 0.15); }
+    input[type="color"] { width: 44px; height: 44px; padding: 0; border: none; cursor: pointer; border-radius: 50%; overflow: hidden; }
+    input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+    input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; }
+    .dynamic-list { border: 2px dashed var(--border); padding: 15px; border-radius: 12px; margin-bottom: 15px; background-color: var(--input-bg); }
+    .flex-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+    .date-group { display: flex; align-items: center; gap: 5px; width: 100%; }
+    .date-group input { flex: 1; padding: 10px 5px; font-size: 0.9em; text-align: center; }
+    .date-group span { color: var(--text-light); font-weight: bold; }
+    .sub-event-card { background: #fff; border: 1px solid var(--border); padding: 15px; border-radius: 8px; margin-bottom: 15px; position: relative; }
+    .random-gift-area { background: var(--random-bg); padding: 10px; border-radius: 8px; border-left: 4px solid var(--primary); margin-top: 10px; }
+    .random-item-row input { padding: 8px 10px; font-size: 0.9em; }
+    button { padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-family: inherit; font-weight: 500; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+    .btn-secondary { background-color: #fff; color: var(--text-main); border: 1px solid var(--border); width: 100%; margin-top: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
+    .btn-success { width: 100%; font-size: 1.1em; padding: 16px; background-color: var(--success); color: white; margin-top: 10px; border-radius: 12px; }
+    .btn-danger { background-color: var(--danger); color: white; padding: 8px 12px; font-size: 0.9em; }
+    .remove-btn { position: absolute; top: 10px; right: 10px; background-color: transparent; color: var(--danger); border: 1px solid var(--danger); border-radius: 8px; padding: 6px; width: 36px; height: 36px; }
+    .gantt-wrapper { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; }
+    .gantt-grid { display: grid; min-width: 800px; border-bottom: 1px solid var(--border); }
+    .gantt-row { display: grid; position: relative; border-bottom: 1px solid #f0eeec; }
+    .gantt-dates { background-color: var(--input-bg); font-weight: 500; text-align: center; font-size: 0.85em; color: var(--text-light); }
+    .gantt-cell { border-right: 1px dashed #f0eeec; padding: 8px 0; text-align: center; }
+    .event-bar { margin: 6px 0; border-radius: 6px; color: white; font-size: 0.85em; padding: 4px 10px; display: flex; align-items: center; overflow: hidden; white-space: nowrap; cursor: pointer; pointer-events: auto; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    .main-event-row { height: 45px; position: relative; display: grid; }
+    .sub-event-row { height: 38px; position: relative; display: grid; border-top: 1px dashed #f0eeec; }
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(92, 85, 82, 0.4); display: none; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(2px); padding: 15px; }
+    .modal-overlay.active { display: flex; animation: fadeIn 0.3s ease; }
+    .modal-content { background: var(--card-bg); padding: 25px 20px; border-radius: 16px; width: 100%; max-width: 500px; position: relative; max-height: 90vh; overflow-y: auto; }
+    .details-box { background: var(--input-bg); padding: 12px; border-radius: 8px; margin-top: 10px; font-size: 0.9em; white-space: pre-wrap; }
+    #loading-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(255,255,255,0.8); display:flex; flex-direction:column; justify-content:center; align-items:center; z-index: 2000; font-weight:bold; }
+    @media (max-width: 600px) {
+      .flex-row > * { flex: 1 1 100%; }
+      .color-app-group { display: flex; gap: 10px; align-items: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="loading-overlay">
+    <div style="font-size: 40px; margin-bottom: 10px;">⏳</div>
+    <div>スケジュールを読み込み中...</div>
+  </div>
+
+  <div class="tab-container">
+    <button id="btn-edit" class="tab-btn" onclick="switchTab('edit')"><span class="material-symbols-rounded">edit_document</span></button>
+    <button id="btn-view" class="tab-btn active" onclick="switchTab('view')"><span class="material-symbols-rounded">calendar_month</span></button>
+  </div>
+
+  <div id="edit-section" class="content-section">
+    <div class="form-header">
+      <h2 style="margin:0;"><span class="material-symbols-rounded" style="color:var(--primary);">stylus_note</span>編集モード</h2>
+      <div>
+        <select id="editEventSelect" onchange="loadEventForEdit()"><option value="">-- 新規作成 --</option></select>
+        <button id="btn-delete" class="btn-danger" style="display:none;" onclick="deleteEvent()">削除</button>
+      </div>
+    </div>
+    <form id="eventForm">
+      <input type="hidden" id="eventId">
+      <div class="color-app-group flex-row">
+        <div class="form-group"><label>カラー</label><input type="color" id="eventColor" value="#8da9c4"></div>
+        <div class="form-group"><label>アプリ</label><input type="text" id="appName" placeholder="例: ツイキャス"></div>
+      </div>
+      <div class="form-group"><label>イベント名</label><input type="text" id="eventName" required></div>
+      <div class="form-group"><label>期間</label>
+        <div class="date-group"><input type="date" id="eventStart" required> <span>〜</span> <input type="date" id="eventEnd" required></div>
+      </div>
+      <div class="form-group"><label>概要</label><textarea id="eventRules" rows="3"></textarea></div>
+      <div class="form-group"><label>サブイベント</label>
+        <div id="subEventsContainer" class="dynamic-list"></div>
+        <button type="button" class="btn-secondary" onclick="addSubEvent()">+ ラウンド/デイリー追加</button>
+      </div>
+      <div class="form-group"><label>指定ギフト</label>
+        <div id="giftsContainer" class="dynamic-list"></div>
+        <button type="button" class="btn-secondary" onclick="addGift()">+ ギフト追加</button>
+      </div>
+      
+      <div class="form-group" style="background: var(--input-bg); padding: 15px; border-radius: 8px; margin-top: 30px; border: 1px dashed var(--primary);">
+        <label style="color: var(--primary); display:flex; align-items:center; gap:5px;">
+          <span class="material-symbols-rounded" style="font-size: 18px;">lock</span> 管理パスワードの変更
+        </label>
+        <p style="font-size: 0.85em; color: var(--text-light); margin-top: 0;">※パスワードを変更したい場合のみ入力してください。空欄なら変更されません。</p>
+        <input type="text" id="newPassword" placeholder="新しいパスワードを入力">
+      </div>
+
+      <button type="button" class="btn-success" onclick="saveEvent()">保存して同期</button>
+    </form>
+  </div>
+
+  <div id="view-section" class="content-section active">
+    <div class="schedule-header" style="display:flex; justify-content:space-between; align-items:center;">
+      <button onclick="changeMonth(-1)"><span class="material-symbols-rounded">chevron_left</span></button>
+      <h2 id="currentMonthLabel">2025年 1月</h2>
+      <button onclick="changeMonth(1)"><span class="material-symbols-rounded">chevron_right</span></button>
+    </div>
+    <div class="gantt-wrapper"><div id="ganttChart"></div></div>
+  </div>
+
+  <div id="modalOverlay" class="modal-overlay" onclick="closeModal(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <span class="material-symbols-rounded" style="position:absolute; top:15px; right:15px; cursor:pointer;" onclick="closeModal(event)">close</span>
+      <div id="modalBody"></div>
+    </div>
+  </div>
+
+  <script>
+    // ★★★ここに「ウェブアプリのURL」を貼り付けてください★★★
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbwyKJESyiJNR98mRyMphBKIU5NELeMIzIS5jmVFoJd5aNulHIT07gtl63MtKSUFub4E/exec';
+    
+    let currentPassword = '1234'; 
+    let events = [];
+    let currentYear = new Date().getFullYear();
+    let currentMonth = new Date().getMonth() + 1;
+
+    window.onload = function() {
+      fetch(GAS_URL)
+        .then(res => res.json())
+        .then(data => {
+          if (data && typeof data === 'object' && !Array.isArray(data) && data.events) {
+            events = data.events;
+            currentPassword = data.password || '1234';
+          } 
+          else if (Array.isArray(data)) {
+            events = data;
+          }
+          document.getElementById('loading-overlay').style.display = 'none';
+          renderSchedule();
+        })
+        .catch(err => {
+          console.error(err);
+          // エラーが出てもとりあえず画面は表示する
+          document.getElementById('loading-overlay').style.display = 'none';
+          renderSchedule();
+        });
+    };
+
+    function switchTab(mode) {
+      if (mode === 'edit') {
+        const pw = prompt('パスワードを入力してください:');
+        if (pw !== currentPassword) { alert('パスワードが違います'); return; }
+      }
+      document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById(mode + '-section').classList.add('active');
+      document.getElementById('btn-' + mode).classList.add('active');
+      if (mode === 'view') renderSchedule(); else updateEditSelect();
+    }
+
+    function addSubEvent(type='ラウンド', name='', start='', end='', details='') {
+      const container = document.getElementById('subEventsContainer');
+      const row = document.createElement('div');
+      row.className = 'sub-event-card sub-event-row-input';
+      row.innerHTML = `<button type="button" class="remove-btn" onclick="this.parentElement.remove()">×</button>
+        <div class="flex-row"><select class="sub-type"><option value="ラウンド" ${type==='ラウンド'?'selected':''}>ラウンド</option><option value="デイリー" ${type==='デイリー'?'selected':''}>デイリー</option></select>
+        <input type="text" placeholder="名称" class="sub-name" value="${name}"></div>
+        <div class="date-group"><input type="date" class="sub-start" value="${start}"> <span>〜</span> <input type="date" class="sub-end" value="${end}"></div>
+        <textarea class="sub-details" placeholder="備考">${details}</textarea>`;
+      container.appendChild(row);
+    }
+
+    function addGift(data = {}) {
+      const type = data.type || '通常', name = data.name || '', coin = data.coin || '', point = data.point || '', randomItems = data.randomItems || [];
+      const container = document.getElementById('giftsContainer');
+      const card = document.createElement('div');
+      card.className = 'sub-event-card gift-row-input';
+      card.innerHTML = `<button type="button" class="remove-btn" onclick="this.parentElement.remove()">×</button>
+        <div class="flex-row"><select class="gift-type" onchange="toggleGiftType(this)"><option value="通常" ${type==='通常'?'selected':''}>通常</option><option value="ランダム" ${type==='ランダム'?'selected':''}>ランダム</option></select>
+        <input type="text" placeholder="ギフト名" class="gift-name" value="${name}"></div>
+        <div class="date-group"><input type="number" placeholder="コイン" class="gift-coin" value="${coin}"></div>
+        <div class="normal-gift-area" style="display: ${type === '通常' ? 'block' : 'none'};"><input type="number" placeholder="pt" class="gift-point" value="${point}"></div>
+        <div class="random-gift-area" style="display: ${type === 'ランダム' ? 'block' : 'none'};">
+          <select class="random-count" onchange="updateRandomItems(this)"><option value="0">個数を選択</option>${[1,2,3,4,5,6,7,8,9,10].map(n=>`<option value="${n}">${n}個</option>`).join('')}</select>
+          <div class="random-items-container"></div>
+        </div>`;
+      container.appendChild(card);
+      if(type==='ランダム' && randomItems.length>0) {
+        const sel = card.querySelector('.random-count'); sel.value = randomItems.length; updateRandomItems(sel);
+        card.querySelectorAll('.random-item-row').forEach((r, i) => {
+          r.querySelector('.random-result-name').value = randomItems[i].resultName;
+          r.querySelector('.random-result-point').value = randomItems[i].point;
+        });
+      }
+    }
+
+    function toggleGiftType(el) {
+      const card = el.closest('.gift-row-input');
+      card.querySelector('.normal-gift-area').style.display = el.value==='通常'?'block':'none';
+      card.querySelector('.random-gift-area').style.display = el.value==='ランダム'?'block':'none';
+    }
+
+    function updateRandomItems(el) {
+      const container = el.closest('.random-gift-area').querySelector('.random-items-container');
+      const count = parseInt(el.value);
+      container.innerHTML = '';
+      for(let i=0; i<count; i++) {
+        const row = document.createElement('div'); row.className = 'date-group random-item-row'; row.style.marginTop='5px';
+        row.innerHTML = `<span style="font-size:12px;">${i+1}.</span><input type="text" class="random-result-name" placeholder="結果"><input type="number" class="random-result-point" placeholder="pt">`;
+        container.appendChild(row);
+      }
+    }
+
+    // ★ここでエラーが出ないように mode: 'no-cors' を追加しました
+    function saveEvent() {
+      const id = document.getElementById('eventId').value || Date.now().toString();
+      const ev = {
+        id, color: document.getElementById('eventColor').value, appName: document.getElementById('appName').value,
+        name: document.getElementById('eventName').value, start: document.getElementById('eventStart').value,
+        end: document.getElementById('eventEnd').value, rules: document.getElementById('eventRules').value,
+        subEvents: [], gifts: []
+      };
+      if(!ev.name || !ev.start) return alert('必須項目を確認してください');
+
+      document.querySelectorAll('.sub-event-row-input').forEach(r => {
+        ev.subEvents.push({ type: r.querySelector('.sub-type').value, name: r.querySelector('.sub-name').value, start: r.querySelector('.sub-start').value, end: r.querySelector('.sub-end').value, details: r.querySelector('.sub-details').value });
+      });
+      document.querySelectorAll('.gift-row-input').forEach(r => {
+        const g = { type: r.querySelector('.gift-type').value, name: r.querySelector('.gift-name').value, coin: r.querySelector('.gift-coin').value, point: r.querySelector('.gift-point')?.value || '', randomItems: [] };
+        if(g.type==='ランダム') {
+          r.querySelectorAll('.random-item-row').forEach(rr => g.randomItems.push({ resultName: rr.querySelector('.random-result-name').value, point: rr.querySelector('.random-result-point').value }));
+        }
+        ev.gifts.push(g);
+      });
+
+      const idx = events.findIndex(e => e.id === id);
+      if(idx>-1) events[idx] = ev; else events.push(ev);
+
+      const newPwInput = document.getElementById('newPassword').value;
+      if (newPwInput.trim() !== '') { currentPassword = newPwInput.trim(); }
+
+      const saveData = { password: currentPassword, events: events };
+
+      document.getElementById('loading-overlay').style.display = 'flex';
+      
+      // ★送信設定の改善
+      fetch(GAS_URL, { 
+        method: 'POST', 
+        mode: 'no-cors', // スマホからのCORSエラーを回避
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify(saveData) 
+      })
+      .then(() => { 
+        alert('保存・同期完了！'); 
+        location.reload(); 
+      })
+      .catch((e) => {
+        console.error(e);
+        alert('同期エラー：スプレッドシートへの保存に失敗しました');
+        document.getElementById('loading-overlay').style.display = 'none';
+      });
+    }
+
+    function deleteEvent() {
+      if(!confirm('削除しますか？')) return;
+      events = events.filter(e => e.id !== document.getElementById('eventId').value);
+      const saveData = { password: currentPassword, events: events };
+      
+      document.getElementById('loading-overlay').style.display = 'flex';
+      fetch(GAS_URL, { 
+        method: 'POST', 
+        mode: 'no-cors', // スマホからのCORSエラーを回避
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify(saveData) 
+      })
+      .then(() => location.reload())
+      .catch(() => {
+        alert('削除同期エラー');
+        document.getElementById('loading-overlay').style.display = 'none';
+      });
+    }
+
+    function updateEditSelect() {
+      const s = document.getElementById('editEventSelect');
+      s.innerHTML = '<option value="">-- 新規作成 --</option>';
+      events.forEach(e => s.innerHTML += `<option value="${e.id}">${e.name}</option>`);
+    }
+
+    function loadEventForEdit() {
+      const id = document.getElementById('editEventSelect').value;
+      document.getElementById('eventForm').reset();
+      document.getElementById('subEventsContainer').innerHTML = '';
+      document.getElementById('giftsContainer').innerHTML = '';
+      if(!id) { document.getElementById('btn-delete').style.display='none'; return; }
+      const e = events.find(ev => ev.id === id);
+      document.getElementById('eventId').value = e.id;
+      document.getElementById('eventColor').value = e.color;
+      document.getElementById('appName').value = e.appName;
+      document.getElementById('eventName').value = e.name;
+      document.getElementById('eventStart').value = e.start;
+      document.getElementById('eventEnd').value = e.end;
+      document.getElementById('eventRules').value = e.rules;
+      e.subEvents.forEach(s => addSubEvent(s.type, s.name, s.start, s.end, s.details));
+      e.gifts.forEach(g => addGift(g));
+      document.getElementById('btn-delete').style.display = 'inline-block';
+    }
+
+    function renderSchedule() {
+      document.getElementById('currentMonthLabel').textContent = `${currentYear}年 ${currentMonth}月`;
+      const days = new Date(currentYear, currentMonth, 0).getDate();
+      const chart = document.getElementById('ganttChart');
+      chart.innerHTML = '';
+      const grid = `repeat(${days}, 1fr)`;
+      const head = document.createElement('div'); head.className = 'gantt-grid gantt-dates'; head.style.gridTemplateColumns = grid;
+      for(let i=1; i<=days; i++) head.innerHTML += `<div class="gantt-cell">${i}</div>`;
+      chart.appendChild(head);
+
+      const mS = new Date(currentYear, currentMonth-1, 1).getTime();
+      const mE = new Date(currentYear, currentMonth, 0, 23, 59, 59).getTime();
+
+      events.forEach(ev => {
+        const eS = new Date(ev.start).getTime();
+        const eE = new Date(ev.end).getTime() + 86400000;
+        if(eE < mS || eS > mE) return;
+
+        const row = document.createElement('div'); row.className = 'event-row-wrapper';
+        const main = document.createElement('div'); main.className = 'main-event-row'; main.style.gridTemplateColumns = grid;
+        for(let i=0; i<days; i++) main.innerHTML += '<div class="gantt-cell"></div>';
+        
+        let dS = Math.max(1, new Date(ev.start).getMonth()+1 === currentMonth ? new Date(ev.start).getDate() : 1);
+        let dE = Math.min(days, new Date(ev.end).getMonth()+1 === currentMonth ? new Date(ev.end).getDate() : days);
+        
+        main.innerHTML += `<div class="event-bar" style="grid-column: ${dS}/${dE+1}; background:${ev.color}; position:absolute; top:0; left:0; width:100%; pointer-events:auto;" onclick='openEventModal(${JSON.stringify(ev)})'>${ev.name}</div>`;
+        row.appendChild(main);
+
+        ev.subEvents.forEach(s => {
+          const sS = new Date(s.start).getTime(), sE = new Date(s.end).getTime() + 86400000;
+          if(sE < mS || sS > mE) return;
+          const subR = document.createElement('div'); subR.className = 'sub-event-row'; subR.style.gridTemplateColumns = grid;
+          for(let i=0; i<days; i++) subR.innerHTML += '<div class="gantt-cell"></div>';
+          let sdS = Math.max(1, new Date(s.start).getMonth()+1 === currentMonth ? new Date(s.start).getDate() : 1);
+          let sdE = Math.min(days, new Date(s.end).getMonth()+1 === currentMonth ? new Date(s.end).getDate() : days);
+          subR.innerHTML += `<div class="event-bar" style="grid-column: ${sdS}/${sdE+1}; background:${hexToRgba(ev.color,0.6)}; position:absolute; top:0; left:0; width:100%; pointer-events:auto;" onclick='openSubModal(${JSON.stringify(s)}, "${ev.color}")'>[${s.type}] ${s.name}</div>`;
+          row.appendChild(subR);
+        });
+        chart.appendChild(row);
+      });
+    }
+
+    function openEventModal(e) {
+      let gH = e.gifts.map(g => `<li>${g.name} (${g.coin}c${g.type==='通常'?' / '+g.point+'pt':''})${g.type==='ランダム'?'<ul>'+g.randomItems.map(r=>`<li>${r.resultName}: ${r.point}pt</li>`).join('')+'</ul>':''}</li>`).join('');
+      document.getElementById('modalBody').innerHTML = `<h3>${e.name}</h3><p>アプリ: ${e.appName}</p><p>期間: ${e.start} 〜 ${e.end}</p><div class="details-box">${e.rules || '概要なし'}</div><h4>ギフト</h4><ul>${gH}</ul>`;
+      document.getElementById('modalOverlay').classList.add('active');
+    }
+
+    function openSubModal(s, col) {
+      document.getElementById('modalBody').innerHTML = `<h3 style="color:${col}">${s.name}</h3><p>期間: ${s.start} 〜 ${s.end}</p><div class="details-box">${s.details || '詳細なし'}</div>`;
+      document.getElementById('modalOverlay').classList.add('active');
+    }
+
+    function closeModal() { document.getElementById('modalOverlay').classList.remove('active'); }
+    function changeMonth(d) { currentMonth += d; if(currentMonth>12){currentMonth=1;currentYear++}else if(currentMonth<1){currentMonth=12;currentYear--} renderSchedule(); }
+    function hexToRgba(h, a) { let r=parseInt(h.slice(1,3),16), g=parseInt(h.slice(3,5),16), b=parseInt(h.slice(5,7),16); return `rgba(${r},${g},${b},${a})`; }
+  </script>
+</body>
+</html>
