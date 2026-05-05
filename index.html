@@ -36,8 +36,8 @@
     .dynamic-list { border: 2px dashed var(--border); padding: 15px; border-radius: 12px; margin-bottom: 15px; background-color: var(--input-bg); }
     .flex-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
     .date-group { display: flex; align-items: center; gap: 5px; width: 100%; }
-    .date-group input { flex: 1; padding: 10px 5px; font-size: 0.9em; text-align: center; }
-    .date-group span { color: var(--text-light); font-weight: bold; }
+    .date-group input, .date-group select { flex: 1; padding: 10px 5px; font-size: 0.9em; text-align: center; }
+    .date-group span { color: var(--text-light); font-weight: bold; white-space: nowrap; }
     .sub-event-card { background: #fff; border: 1px solid var(--border); padding: 15px; border-radius: 8px; margin-bottom: 15px; position: relative; }
     .random-gift-area { background: var(--random-bg); padding: 10px; border-radius: 8px; border-left: 4px solid var(--primary); margin-top: 10px; }
     .random-item-row input { padding: 8px 10px; font-size: 0.9em; }
@@ -65,32 +65,14 @@
     .modal-image { width: 100%; border-radius: 8px; margin-top: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
     .schedule-hint { text-align: center; font-size: 0.85em; color: var(--text-light); margin: -5px 0 15px 0; display: flex; align-items: center; justify-content: center; gap: 4px; }
     
-    /* ★新しくなったフィルター（タップで色が濃くなるボタン式） */
+    /* フィルターとチェックボックス用 */
     .filter-btn { padding:8px; color:var(--text-main); background:transparent; border-radius:8px; transition:0.2s; border:none; display:flex; align-items:center; justify-content:center;}
     .filter-btn.active-filter { color:var(--primary); background:rgba(141, 169, 196, 0.15); }
-    
     .filter-chip-label { display: block; cursor: pointer; }
-    .filter-chip-label input { display: none; /* 元のチェックボックスは隠す */ }
-    .chip-text {
-      display: block;
-      text-align: center;
-      padding: 12px 10px;
-      border-radius: 8px;
-      background-color: rgba(141, 169, 196, 0.15); /* 薄い色（未選択） */
-      color: var(--primary);
-      border: 1px solid rgba(141, 169, 196, 0.3);
-      font-weight: 500;
-      transition: all 0.2s;
-      user-select: none;
-    }
-    /* 選択された時は色が濃くなる（塗りつぶし） */
-    .filter-chip-label input:checked + .chip-text {
-      background-color: var(--primary);
-      color: #fff;
-      border-color: var(--primary);
-    }
+    .filter-chip-label input { display: none; }
+    .chip-text { display: block; text-align: center; padding: 12px 10px; border-radius: 8px; background-color: rgba(141, 169, 196, 0.15); color: var(--primary); border: 1px solid rgba(141, 169, 196, 0.3); font-weight: 500; transition: all 0.2s; user-select: none; }
+    .filter-chip-label input:checked + .chip-text { background-color: var(--primary); color: #fff; border-color: var(--primary); }
     
-    /* 編集画面用の古いチェックボックスデザイン */
     .chk-label { display:flex; align-items:center; gap:8px; background:var(--input-bg); padding:10px 15px; border-radius:8px; border:1px solid var(--border); cursor:pointer; }
     .chk-label input { width:20px; height:20px; margin:0; }
 
@@ -127,7 +109,15 @@
       <input type="hidden" id="eventId">
       <div class="color-app-group flex-row">
         <div class="form-group"><label class="group-label">カラー</label><input type="color" id="eventColor" value="#8da9c4"></div>
-        <div class="form-group"><label class="group-label">アプリ</label><input type="text" id="appName" placeholder="例: ツイキャス"></div>
+        <div class="form-group">
+          <label class="group-label">アプリ</label>
+          <select id="appName" onchange="toggleAwardSection()">
+            <option value="" disabled selected>アプリを選択</option>
+            <option value="エブリライブ">エブリライブ</option>
+            <option value="TikTokライブ">TikTokライブ</option>
+            <option value="17ライブ">17ライブ</option>
+          </select>
+        </div>
       </div>
       
       <div class="form-group">
@@ -142,6 +132,16 @@
         <div class="date-group"><input type="date" id="eventStart" required> <span>〜</span> <input type="date" id="eventEnd" required></div>
       </div>
       <div class="form-group"><label class="group-label">イベント概要・ルール</label><textarea id="eventRules" rows="3"></textarea></div>
+      
+      <div class="form-group" id="awardSection" style="display: none;">
+        <label class="group-label" style="color:var(--primary);">
+          <span class="material-symbols-rounded" style="font-size:16px; vertical-align:middle;">star</span> 
+          Awardポイント (エブリライブ専用)
+        </label>
+        <div id="awardContainer" class="dynamic-list"></div>
+        <button type="button" class="btn-secondary" onclick="addAward()">+ Awardポイント追加</button>
+      </div>
+
       <div class="form-group"><label class="group-label">ラウンド / デイリーミッション</label>
         <div id="subEventsContainer" class="dynamic-list"></div>
         <button type="button" class="btn-secondary" onclick="addSubEvent()">+ ラウンド/デイリー追加</button>
@@ -257,7 +257,43 @@
       if (mode === 'view') renderSchedule(); else updateEditSelect();
     }
 
-    // ★アプリ一覧の出力も新しい「色が濃くなるボタン」デザインに修正
+    // ★アプリが「エブリライブ」ならAwardポイント枠を表示
+    function toggleAwardSection() {
+      const app = document.getElementById('appName').value;
+      document.getElementById('awardSection').style.display = (app === 'エブリライブ') ? 'block' : 'none';
+    }
+
+    // ★Awardポイント行の追加
+    function addAward(start = 1, end = 1, pts = '') {
+      const container = document.getElementById('awardContainer');
+      const row = document.createElement('div');
+      row.className = 'sub-event-card award-row-input';
+      
+      // 1位〜20位の選択肢を生成
+      let rankOptions = '';
+      for(let i = 1; i <= 20; i++) {
+        rankOptions += `<option value="${i}">${i}</option>`;
+      }
+
+      row.innerHTML = `
+        <button type="button" class="remove-btn" onclick="this.parentElement.remove()">×</button>
+        <div class="date-group" style="margin-right: 35px; margin-bottom: 10px;">
+          <select class="award-start">${rankOptions}</select> 
+          <span style="margin: 0 4px;">位 〜</span> 
+          <select class="award-end">${rankOptions}</select> 
+          <span style="margin-left: 4px;">位</span>
+        </div>
+        <div class="date-group">
+          <input type="number" class="award-pts" placeholder="ポイント数 (数字のみ)" value="${pts}">
+          <span style="margin-left: 5px;">pt</span>
+        </div>
+      `;
+      // 初期値のセット
+      row.querySelector('.award-start').value = start;
+      row.querySelector('.award-end').value = end;
+      container.appendChild(row);
+    }
+
     function openFilterModal() {
       const container = document.getElementById('filterAppContainer');
       const apps = [...new Set(events.map(e => e.appName).filter(Boolean))];
@@ -287,20 +323,17 @@
       activeFilters.notPart = document.getElementById('f-notpart').checked;
       const appChks = document.querySelectorAll('.filter-app-chk');
       const selectedApps = Array.from(appChks).filter(chk => chk.checked).map(chk => chk.value);
-      
       if (selectedApps.length === appChks.length || selectedApps.length === 0) {
         activeFilters.apps = []; 
       } else {
         activeFilters.apps = selectedApps;
       }
-      
       const btn = document.getElementById('filterBtn');
       if (!activeFilters.part || !activeFilters.notPart || activeFilters.apps.length > 0) {
         btn.classList.add('active-filter');
       } else {
         btn.classList.remove('active-filter');
       }
-
       closeFilterModal();
       renderSchedule();
     }
@@ -393,14 +426,29 @@
 
     function saveEvent() {
       const id = document.getElementById('eventId').value || Date.now().toString();
+      const appNameStr = document.getElementById('appName').value;
       const ev = {
-        id, color: document.getElementById('eventColor').value, appName: document.getElementById('appName').value,
+        id, color: document.getElementById('eventColor').value, appName: appNameStr,
         name: document.getElementById('eventName').value, start: document.getElementById('eventStart').value,
         end: document.getElementById('eventEnd').value, rules: document.getElementById('eventRules').value,
         isParticipating: document.getElementById('isParticipating').checked,
-        subEvents: [], gifts: []
+        subEvents: [], gifts: [], awards: [] // ★awardsを追加
       };
+      
       if(!ev.name || !ev.start) return alert('必須項目を確認してください');
+      if(!appNameStr) return alert('アプリを選択してください');
+
+      // ★エブリライブの場合、Awardポイントを保存
+      if (appNameStr === 'エブリライブ') {
+        document.querySelectorAll('.award-row-input').forEach(r => {
+          const s = parseInt(r.querySelector('.award-start').value);
+          const e = parseInt(r.querySelector('.award-end').value);
+          const p = r.querySelector('.award-pts').value;
+          if (p) ev.awards.push({ start: s, end: e, pts: p });
+        });
+        // 念のため開始順位で並び替え
+        ev.awards.sort((a, b) => a.start - b.start);
+      }
 
       document.querySelectorAll('.sub-event-row-input').forEach(r => {
         ev.subEvents.push({ 
@@ -409,6 +457,7 @@
           details: r.querySelector('.sub-details').value, img: r.querySelector('.sub-image-base64').value
         });
       });
+      
       document.querySelectorAll('.gift-row-input').forEach(r => {
         const g = { type: r.querySelector('.gift-type').value, name: r.querySelector('.gift-name').value, coin: r.querySelector('.gift-coin').value, point: r.querySelector('.gift-point')?.value || '', randomItems: [] };
         if(g.type==='ランダム') {
@@ -449,16 +498,28 @@
       document.getElementById('eventForm').reset();
       document.getElementById('subEventsContainer').innerHTML = '';
       document.getElementById('giftsContainer').innerHTML = '';
+      document.getElementById('awardContainer').innerHTML = ''; // Award枠もリセット
+      document.getElementById('awardSection').style.display = 'none';
+
       if(!id) { document.getElementById('btn-delete').style.display='none'; return; }
+      
       const e = events.find(ev => ev.id === id);
       document.getElementById('eventId').value = e.id;
       document.getElementById('eventColor').value = e.color;
+      
+      // ★アプリ名設定して枠の表示切替
       document.getElementById('appName').value = e.appName;
+      toggleAwardSection();
+      if (e.appName === 'エブリライブ' && e.awards) {
+        e.awards.forEach(a => addAward(a.start, a.end, a.pts));
+      }
+
       document.getElementById('eventName').value = e.name;
       document.getElementById('isParticipating').checked = e.isParticipating || false;
       document.getElementById('eventStart').value = e.start;
       document.getElementById('eventEnd').value = e.end;
       document.getElementById('eventRules').value = e.rules;
+      
       e.subEvents.forEach(s => addSubEvent(s.type, s.name, s.start, s.end, s.details, s.img || ''));
       e.gifts.forEach(g => addGift(g));
       document.getElementById('btn-delete').style.display = 'inline-block';
@@ -574,8 +635,26 @@
     }
 
     function openEventModal(e) {
-      let gH = e.gifts.map(g => `<li>${g.name} (${g.coin}c${g.type==='通常'?' / '+g.point+'pt':''})${g.type==='ランダム'?'<ul>'+g.randomItems.map(r=>`<li>${r.resultName}: ${r.point}pt</li>`).join('')+'</ul>':''}</li>`).join('');
+      // ★ギフト表示
+      let gH = '';
+      if(e.gifts && e.gifts.length > 0) {
+        gH = '<h4>ギフト</h4><ul>' + e.gifts.map(g => `<li>${g.name} (${g.coin}c${g.type==='通常'?' / '+g.point+'pt':''})${g.type==='ランダム'?'<ul>'+g.randomItems.map(r=>`<li>${r.resultName}: ${r.point}pt</li>`).join('')+'</ul>':''}</li>`).join('') + '</ul>';
+      }
       
+      // ★Awardポイント表示（エブリライブ専用）
+      let awardHtml = '';
+      if(e.appName === 'エブリライブ' && e.awards && e.awards.length > 0) {
+        awardHtml = '<h4 style="margin-bottom:8px; margin-top:15px; color:var(--text-main);">Awardポイント</h4><ul style="margin-top:0; padding-left:20px;">';
+        e.awards.forEach(a => {
+          if (a.start === a.end) {
+            awardHtml += `<li><strong>${a.start}位</strong>: ${a.pts}pt</li>`;
+          } else {
+            awardHtml += `<li><strong>${a.start}位 〜 ${a.end}位</strong>: ${a.pts}pt</li>`;
+          }
+        });
+        awardHtml += '</ul>';
+      }
+
       let partHtml = `
         <label style="display:flex; align-items:center; gap:8px; background:var(--input-bg); padding:12px 15px; border-radius:8px; border:2px solid ${e.isParticipating ? 'var(--primary)' : 'var(--border)'}; margin-bottom:15px; cursor:pointer; transition:0.2s;">
           <input type="checkbox" style="width:24px; height:24px; cursor:pointer;" ${e.isParticipating ? 'checked' : ''} onchange="toggleEventParticipation('${e.id}', this.checked, this)">
@@ -583,7 +662,7 @@
         </label>
       `;
 
-      document.getElementById('modalBody').innerHTML = `<h3>${e.name}</h3>${partHtml}<p>アプリ: ${e.appName}</p><p>期間: ${e.start} 〜 ${e.end}</p><div class="details-box">${e.rules || '概要なし'}</div><h4>ギフト</h4><ul>${gH}</ul>`;
+      document.getElementById('modalBody').innerHTML = `<h3>${e.name}</h3>${partHtml}<p>アプリ: ${e.appName}</p><p>期間: ${e.start} 〜 ${e.end}</p><div class="details-box">${e.rules || '概要なし'}</div>${awardHtml}${gH}`;
       document.getElementById('modalOverlay').classList.add('active');
     }
 
