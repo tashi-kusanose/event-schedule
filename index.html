@@ -47,7 +47,6 @@
     .btn-danger { background-color: var(--danger); color: white; padding: 8px 12px; font-size: 0.9em; }
     .remove-btn { position: absolute; top: 10px; right: 10px; background-color: transparent; color: var(--danger); border: 1px solid var(--danger); border-radius: 8px; padding: 6px; width: 36px; height: 36px; }
     
-    /* ガントチャート */
     .gantt-wrapper { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; -webkit-overflow-scrolling: touch; }
     .gantt-grid { display: grid; min-width: 800px; border-bottom: 1px solid var(--border); }
     .main-event-row { display: grid; min-width: 800px; height: 45px; }
@@ -74,9 +73,14 @@
     
     .chk-label { display:flex; align-items:center; gap:8px; background:var(--input-bg); padding:10px 15px; border-radius:8px; border:1px solid var(--border); cursor:pointer; }
     .chk-label input { width:20px; height:20px; margin:0; }
-
-    /* 各Awardコンテナのデザイン用 */
     .award-group-box { background: var(--input-bg); padding: 10px; border-radius: 8px; margin-bottom: 15px; border: 1px dashed var(--border); }
+
+    /* ★新規/編集 切り替えボタンのスタイル */
+    .mode-radio-group { display: flex; gap: 10px; margin-bottom: 20px; }
+    .mode-radio-label { flex: 1; text-align: center; padding: 12px; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; font-weight: bold; color: var(--text-light); transition: 0.2s; }
+    .mode-radio-label input { display: none; }
+    /* 選択中のスタイル（チェック済みのinputを持つlabelに適用） */
+    .mode-radio-label:has(input:checked) { background: var(--primary); color: white; border-color: var(--primary); box-shadow: 0 4px 10px rgba(141, 169, 196, 0.3); }
 
     @media (max-width: 600px) {
       .flex-row > * { flex: 1 1 100%; }
@@ -102,11 +106,38 @@
   <div id="edit-section" class="content-section">
     <div class="form-header">
       <h2 style="margin:0;"><span class="material-symbols-rounded" style="color:var(--primary);">stylus_note</span>編集モード</h2>
-      <div>
-        <select id="editEventSelect" onchange="loadEventForEdit()"><option value="">-- 新規作成 --</option></select>
-        <button id="btn-delete" class="btn-danger" style="display:none;" onclick="deleteEvent()">削除</button>
+    </div>
+
+    <div class="mode-radio-group">
+      <label class="mode-radio-label">
+        <input type="radio" name="editMode" value="new" checked onchange="toggleEditMode()"> 新規作成
+      </label>
+      <label class="mode-radio-label">
+        <input type="radio" name="editMode" value="edit" onchange="toggleEditMode()"> イベント編集
+      </label>
+    </div>
+
+    <div id="editSelectorArea" style="display:none; background: var(--input-bg); padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px dashed var(--primary);">
+      <label class="group-label" style="color:var(--primary); font-size:0.85em; margin-bottom:10px;">編集するイベントを探す</label>
+      <div style="display:flex; gap:10px; margin-bottom:10px; flex-wrap:wrap;">
+        <select id="filterYearMonth" onchange="updateEditEventList()" style="flex:1;">
+          <option value="">すべての年月</option>
+        </select>
+        <select id="filterAppName" onchange="updateEditEventList()" style="flex:1;">
+          <option value="">すべてのアプリ</option>
+          <option value="エブリライブ">エブリライブ</option>
+          <option value="TikTokライブ">TikTokライブ</option>
+          <option value="17ライブ">17ライブ</option>
+        </select>
+      </div>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <select id="editEventSelect" onchange="loadEventForEdit()" style="flex:3;">
+          <option value="">-- イベントを選択 --</option>
+        </select>
+        <button id="btn-delete" class="btn-danger" style="display:none; flex:1;" onclick="deleteEvent()">削除</button>
       </div>
     </div>
+
     <form id="eventForm">
       <input type="hidden" id="eventId">
       <div class="color-app-group flex-row">
@@ -139,19 +170,16 @@
         <label class="group-label" style="color:var(--primary); font-weight:bold; margin-top:25px; border-bottom:1px solid var(--primary); padding-bottom:5px;">
           <span class="material-symbols-rounded" style="font-size:18px; vertical-align:middle;">stars</span> エブリライブ専用 Awardポイント
         </label>
-        
         <div class="award-group-box">
           <label style="font-size:0.9em; font-weight:bold; color:var(--text-main);">◆ Awardポイント</label>
           <div id="awardContainer_normal" class="dynamic-list" style="background:transparent; border:none; padding:5px 0;"></div>
           <button type="button" class="btn-secondary" onclick="addAward('normal')">+ Award追加</button>
         </div>
-
         <div class="award-group-box">
           <label style="font-size:0.9em; font-weight:bold; color:var(--text-main);">◆ モデル部門 Awardポイント</label>
           <div id="awardContainer_model" class="dynamic-list" style="background:transparent; border:none; padding:5px 0;"></div>
           <button type="button" class="btn-secondary" onclick="addAward('model')">+ モデル部門追加</button>
         </div>
-
         <div class="award-group-box">
           <label style="font-size:0.9em; font-weight:bold; color:var(--text-main);">◆ 音楽部門 Awardポイント</label>
           <div id="awardContainer_music" class="dynamic-list" style="background:transparent; border:none; padding:5px 0;"></div>
@@ -265,7 +293,75 @@
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       document.getElementById(mode + '-section').classList.add('active');
       document.getElementById('btn-' + mode).classList.add('active');
-      if (mode === 'view') renderSchedule(); else updateEditSelect();
+      
+      if (mode === 'view') {
+        renderSchedule(); 
+      } else {
+        // 編集モードを開いたとき、「イベント編集」が選ばれていたらリストを更新する
+        if (document.querySelector('input[name="editMode"]:checked').value === 'edit') {
+          updateYearMonthOptions();
+          updateEditEventList();
+        }
+      }
+    }
+
+    // ★新規作成と編集のラジオボタンを切り替えたときの処理
+    function toggleEditMode() {
+      const mode = document.querySelector('input[name="editMode"]:checked').value;
+      const area = document.getElementById('editSelectorArea');
+      
+      if (mode === 'new') {
+        area.style.display = 'none';
+        resetForm(true);
+      } else {
+        area.style.display = 'block';
+        updateYearMonthOptions();
+        updateEditEventList();
+      }
+    }
+
+    // ★イベントが存在する年月を抽出してセレクトボックスを作る
+    function updateYearMonthOptions() {
+      const select = document.getElementById('filterYearMonth');
+      const currentVal = select.value;
+      select.innerHTML = '<option value="">すべての年月</option>';
+      
+      const yms = new Set();
+      events.forEach(e => {
+        if(e.start) {
+          yms.add(e.start.substring(0, 7)); // "YYYY-MM"
+        }
+      });
+      
+      Array.from(yms).sort().reverse().forEach(ym => {
+        const [y, m] = ym.split('-');
+        select.innerHTML += `<option value="${ym}">${y}年 ${parseInt(m)}月</option>`;
+      });
+      select.value = currentVal;
+    }
+
+    // ★条件に合うイベントだけを抽出してセレクトボックスを作る
+    function updateEditEventList() {
+      const ymFilter = document.getElementById('filterYearMonth').value;
+      const appFilter = document.getElementById('filterAppName').value;
+      const select = document.getElementById('editEventSelect');
+      
+      select.innerHTML = '<option value="">-- イベントを選択 --</option>';
+      
+      events.forEach(e => {
+        let matchYm = true;
+        if (ymFilter && e.start) matchYm = e.start.startsWith(ymFilter);
+        
+        let matchApp = true;
+        if (appFilter) matchApp = (e.appName === appFilter);
+        
+        if (matchYm && matchApp) {
+          select.innerHTML += `<option value="${e.id}">${e.name} (${e.start})</option>`;
+        }
+      });
+      
+      // 絞り込みを変えたら、入力中のフォームはいったんリセットする
+      resetForm(false);
     }
 
     function toggleAwardSection() {
@@ -273,7 +369,6 @@
       document.getElementById('everyliveAwardsWrapper').style.display = (app === 'エブリライブ') ? 'block' : 'none';
     }
 
-    // ★指定されたタイプ（normal, model, music）のコンテナに追加する
     function addAward(type = 'normal', start = 1, end = 1, pts = '') {
       const container = document.getElementById(`awardContainer_${type}`);
       const row = document.createElement('div');
@@ -420,12 +515,11 @@
         end: document.getElementById('eventEnd').value, rules: document.getElementById('eventRules').value,
         isParticipating: document.getElementById('isParticipating').checked,
         subEvents: [], gifts: [], 
-        awards: { normal: [], model: [], music: [] } // ★3種類をオブジェクトとして保存
+        awards: { normal: [], model: [], music: [] } 
       };
       if(!ev.name || !ev.start) return alert('必須項目を確認してください');
       if(!appNameStr) return alert('アプリを選択してください');
 
-      // ★3種類のAwardをそれぞれ取得して保存
       if (appNameStr === 'エブリライブ') {
         ['normal', 'model', 'music'].forEach(type => {
           document.getElementById(`awardContainer_${type}`).querySelectorAll('.award-row-input').forEach(r => {
@@ -469,24 +563,29 @@
       fetch(GAS_URL, { method: 'POST', body: JSON.stringify(saveData) }).then(() => location.reload());
     }
 
-    function updateEditSelect() {
-      const s = document.getElementById('editEventSelect');
-      s.innerHTML = '<option value="">-- 新規作成 --</option>';
-      events.forEach(e => s.innerHTML += `<option value="${e.id}">${e.name}</option>`);
-    }
-
-    function loadEventForEdit() {
-      const id = document.getElementById('editEventSelect').value;
+    // フォームのリセットと削除ボタンの非表示（引数でセレクトボックスをクリアするか指定）
+    function resetForm(clearSelect = true) {
       document.getElementById('eventForm').reset();
+      document.getElementById('eventId').value = '';
+      document.getElementById('eventColor').value = '#8da9c4';
       document.getElementById('subEventsContainer').innerHTML = '';
       document.getElementById('giftsContainer').innerHTML = '';
-      // Awardコンテナの初期化
       document.getElementById('awardContainer_normal').innerHTML = ''; 
       document.getElementById('awardContainer_model').innerHTML = ''; 
       document.getElementById('awardContainer_music').innerHTML = ''; 
       document.getElementById('everyliveAwardsWrapper').style.display = 'none';
+      document.getElementById('btn-delete').style.display = 'none';
+      if(clearSelect) {
+        const select = document.getElementById('editEventSelect');
+        if (select) select.value = '';
+      }
+    }
 
-      if(!id) { document.getElementById('btn-delete').style.display='none'; return; }
+    function loadEventForEdit() {
+      const id = document.getElementById('editEventSelect').value;
+      resetForm(false);
+
+      if(!id) return;
       const e = events.find(ev => ev.id === id);
       document.getElementById('eventId').value = e.id;
       document.getElementById('eventColor').value = e.color;
@@ -494,7 +593,6 @@
       
       toggleAwardSection();
       if (e.appName === 'エブリライブ' && e.awards) {
-        // 古いデータ（配列）との互換性対応
         if (Array.isArray(e.awards)) {
           e.awards.forEach(a => addAward('normal', a.start, a.end, a.pts));
         } else {
@@ -617,10 +715,8 @@
       if(e.gifts && e.gifts.length > 0) {
         gH = '<h4>ギフト</h4><ul>' + e.gifts.map(g => `<li>${g.name} (${g.coin}c${g.type==='通常'?' / '+g.point+'pt':''})${g.type==='ランダム'?'<ul>'+g.randomItems.map(r=>`<li>${r.resultName}: ${r.point}pt</li>`).join('')+'</ul>':''}</li>`).join('') + '</ul>';
       }
-      
       let awardHtml = '';
       if(e.appName === 'エブリライブ' && e.awards) {
-        // ★3種類のAwardをそれぞれリスト化する関数
         const buildList = (title, list) => {
           if (!list || list.length === 0) return '';
           let html = `<h4 style="margin-bottom:8px; margin-top:15px; color:var(--text-main);">${title}</h4><ul style="margin-top:0; padding-left:20px;">`;
@@ -633,16 +729,13 @@
         };
 
         if (Array.isArray(e.awards)) {
-          // 古い形式のデータ
           awardHtml += buildList('Awardポイント', e.awards);
         } else {
-          // 新しい形式のデータ
           awardHtml += buildList('Awardポイント', e.awards.normal);
           awardHtml += buildList('モデル部門 Awardポイント', e.awards.model);
           awardHtml += buildList('音楽部門 Awardポイント', e.awards.music);
         }
       }
-
       let partHtml = `
         <label style="display:flex; align-items:center; gap:8px; background:var(--input-bg); padding:12px 15px; border-radius:8px; border:2px solid ${e.isParticipating ? 'var(--primary)' : 'var(--border)'}; margin-bottom:15px; cursor:pointer; transition:0.2s;">
           <input type="checkbox" style="width:24px; height:24px; cursor:pointer;" ${e.isParticipating ? 'checked' : ''} onchange="toggleEventParticipation('${e.id}', this.checked, this)">
