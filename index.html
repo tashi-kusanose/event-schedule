@@ -59,6 +59,8 @@
     .modal-content { background: var(--card-bg); padding: 25px 20px; border-radius: 16px; width: 100%; max-width: 500px; position: relative; max-height: 90vh; overflow-y: auto; }
     .details-box { background: var(--input-bg); padding: 12px; border-radius: 8px; margin-top: 10px; font-size: 0.9em; white-space: pre-wrap; }
     #loading-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(255,255,255,0.8); display:flex; flex-direction:column; justify-content:center; align-items:center; z-index: 2000; font-weight:bold; }
+    .image-preview { margin-top: 8px; width: 100%; max-height: 200px; object-fit: contain; border-radius: 8px; border: 1px solid var(--border); display: none; }
+    .modal-image { width: 100%; border-radius: 8px; margin-top: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
     @media (max-width: 600px) {
       .flex-row > * { flex: 1 1 100%; }
       .color-app-group { display: flex; gap: 10px; align-items: center; }
@@ -69,7 +71,7 @@
 
   <div id="loading-overlay">
     <div style="font-size: 40px; margin-bottom: 10px;">⏳</div>
-    <div>スケジュールを読み込み中...</div>
+    <div>スケジュールを同期中...</div>
   </div>
 
   <div class="tab-container">
@@ -95,8 +97,8 @@
       <div class="form-group"><label>期間</label>
         <div class="date-group"><input type="date" id="eventStart" required> <span>〜</span> <input type="date" id="eventEnd" required></div>
       </div>
-      <div class="form-group"><label>概要</label><textarea id="eventRules" rows="3"></textarea></div>
-      <div class="form-group"><label>サブイベント</label>
+      <div class="form-group"><label>イベント概要・ルール</label><textarea id="eventRules" rows="3"></textarea></div>
+      <div class="form-group"><label>ラウンド / デイリーミッション</label>
         <div id="subEventsContainer" class="dynamic-list"></div>
         <button type="button" class="btn-secondary" onclick="addSubEvent()">+ ラウンド/デイリー追加</button>
       </div>
@@ -107,10 +109,9 @@
       
       <div class="form-group" style="background: var(--input-bg); padding: 15px; border-radius: 8px; margin-top: 30px; border: 1px dashed var(--primary);">
         <label style="color: var(--primary); display:flex; align-items:center; gap:5px;">
-          <span class="material-symbols-rounded" style="font-size: 18px;">lock</span> 管理パスワードの変更
+          <span class="material-symbols-rounded" style="font-size: 18px;">lock</span> パスワードの変更
         </label>
-        <p style="font-size: 0.85em; color: var(--text-light); margin-top: 0;">※パスワードを変更したい場合のみ入力してください。空欄なら変更されません。</p>
-        <input type="text" id="newPassword" placeholder="新しいパスワードを入力">
+        <input type="text" id="newPassword" placeholder="新しいパスワードを入力 (空欄なら維持)">
       </div>
 
       <button type="button" class="btn-success" onclick="saveEvent()">保存して同期</button>
@@ -134,9 +135,7 @@
   </div>
 
   <script>
-    // ★★★ここに「ウェブアプリのURL」を貼り付けてください★★★
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbwyKJESyiJNR98mRyMphBKIU5NELeMIzIS5jmVFoJd5aNulHIT07gtl63MtKSUFub4E/exec';
-    
     let currentPassword = '1234'; 
     let events = [];
     let currentYear = new Date().getFullYear();
@@ -146,28 +145,24 @@
       fetch(GAS_URL)
         .then(res => res.json())
         .then(data => {
-          if (data && typeof data === 'object' && !Array.isArray(data) && data.events) {
+          if (data && data.events) {
             events = data.events;
             currentPassword = data.password || '1234';
-          } 
-          else if (Array.isArray(data)) {
+          } else if (Array.isArray(data)) {
             events = data;
           }
           document.getElementById('loading-overlay').style.display = 'none';
           renderSchedule();
         })
         .catch(err => {
-          console.error(err);
-          // エラーが出てもとりあえず画面は表示する
           document.getElementById('loading-overlay').style.display = 'none';
-          renderSchedule();
         });
     };
 
     function switchTab(mode) {
       if (mode === 'edit') {
         const pw = prompt('パスワードを入力してください:');
-        if (pw !== currentPassword) { alert('パスワードが違います'); return; }
+        if (pw !== currentPassword) { alert('認証失敗'); return; }
       }
       document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -176,16 +171,57 @@
       if (mode === 'view') renderSchedule(); else updateEditSelect();
     }
 
-    function addSubEvent(type='ラウンド', name='', start='', end='', details='') {
+    // ★画像処理付きサブイベント追加
+    function addSubEvent(type='ラウンド', name='', start='', end='', details='', imgData='') {
       const container = document.getElementById('subEventsContainer');
       const row = document.createElement('div');
       row.className = 'sub-event-card sub-event-row-input';
-      row.innerHTML = `<button type="button" class="remove-btn" onclick="this.parentElement.remove()">×</button>
+      row.innerHTML = `
+        <button type="button" class="remove-btn" onclick="this.parentElement.remove()">×</button>
         <div class="flex-row"><select class="sub-type"><option value="ラウンド" ${type==='ラウンド'?'selected':''}>ラウンド</option><option value="デイリー" ${type==='デイリー'?'selected':''}>デイリー</option></select>
         <input type="text" placeholder="名称" class="sub-name" value="${name}"></div>
         <div class="date-group"><input type="date" class="sub-start" value="${start}"> <span>〜</span> <input type="date" class="sub-end" value="${end}"></div>
-        <textarea class="sub-details" placeholder="備考">${details}</textarea>`;
+        <textarea class="sub-details" placeholder="詳細・備考">${details}</textarea>
+        
+        <div style="margin-top:10px;">
+          <label style="font-size:12px; color:var(--primary); cursor:pointer; display:flex; align-items:center; gap:4px;">
+            <span class="material-symbols-rounded" style="font-size:18px;">add_photo_alternate</span> ミッション画像を貼る
+            <input type="file" accept="image/*" style="display:none;" onchange="handleImageUpload(this)">
+          </label>
+          <img class="image-preview" src="${imgData}" style="${imgData ? 'display:block;' : ''}">
+          <input type="hidden" class="sub-image-base64" value="${imgData}">
+        </div>
+      `;
       container.appendChild(row);
+    }
+
+    // 画像ファイルをBase64にしてリサイズ
+    function handleImageUpload(input) {
+      const file = input.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      const preview = input.parentElement.nextElementSibling;
+      const hiddenInput = preview.nextElementSibling;
+
+      reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          // 最大横幅を600pxにリサイズして容量節約
+          if (width > 600) { height *= 600 / width; width = 600; }
+          canvas.width = width; canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          const resizedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+          preview.src = resizedBase64;
+          preview.style.display = 'block';
+          hiddenInput.value = resizedBase64;
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
     }
 
     function addGift(data = {}) {
@@ -229,7 +265,6 @@
       }
     }
 
-    // ★ここでエラーが出ないように mode: 'no-cors' を追加しました
     function saveEvent() {
       const id = document.getElementById('eventId').value || Date.now().toString();
       const ev = {
@@ -241,7 +276,14 @@
       if(!ev.name || !ev.start) return alert('必須項目を確認してください');
 
       document.querySelectorAll('.sub-event-row-input').forEach(r => {
-        ev.subEvents.push({ type: r.querySelector('.sub-type').value, name: r.querySelector('.sub-name').value, start: r.querySelector('.sub-start').value, end: r.querySelector('.sub-end').value, details: r.querySelector('.sub-details').value });
+        ev.subEvents.push({ 
+          type: r.querySelector('.sub-type').value, 
+          name: r.querySelector('.sub-name').value, 
+          start: r.querySelector('.sub-start').value, 
+          end: r.querySelector('.sub-end').value, 
+          details: r.querySelector('.sub-details').value,
+          img: r.querySelector('.sub-image-base64').value
+        });
       });
       document.querySelectorAll('.gift-row-input').forEach(r => {
         const g = { type: r.querySelector('.gift-type').value, name: r.querySelector('.gift-name').value, coin: r.querySelector('.gift-coin').value, point: r.querySelector('.gift-point')?.value || '', randomItems: [] };
@@ -254,48 +296,22 @@
       const idx = events.findIndex(e => e.id === id);
       if(idx>-1) events[idx] = ev; else events.push(ev);
 
-      const newPwInput = document.getElementById('newPassword').value;
-      if (newPwInput.trim() !== '') { currentPassword = newPwInput.trim(); }
+      const newPw = document.getElementById('newPassword').value;
+      if (newPw.trim()) currentPassword = newPw.trim();
 
       const saveData = { password: currentPassword, events: events };
-
       document.getElementById('loading-overlay').style.display = 'flex';
-      
-      // ★送信設定の改善
-      fetch(GAS_URL, { 
-        method: 'POST', 
-        mode: 'no-cors', // スマホからのCORSエラーを回避
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify(saveData) 
-      })
-      .then(() => { 
-        alert('保存・同期完了！'); 
-        location.reload(); 
-      })
-      .catch((e) => {
-        console.error(e);
-        alert('同期エラー：スプレッドシートへの保存に失敗しました');
-        document.getElementById('loading-overlay').style.display = 'none';
-      });
+      fetch(GAS_URL, { method: 'POST', body: JSON.stringify(saveData) })
+        .then(() => { alert('同期完了！'); location.reload(); })
+        .catch(() => alert('同期に失敗しました。画像のサイズを小さくして試してください。'));
     }
 
     function deleteEvent() {
       if(!confirm('削除しますか？')) return;
       events = events.filter(e => e.id !== document.getElementById('eventId').value);
       const saveData = { password: currentPassword, events: events };
-      
       document.getElementById('loading-overlay').style.display = 'flex';
-      fetch(GAS_URL, { 
-        method: 'POST', 
-        mode: 'no-cors', // スマホからのCORSエラーを回避
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify(saveData) 
-      })
-      .then(() => location.reload())
-      .catch(() => {
-        alert('削除同期エラー');
-        document.getElementById('loading-overlay').style.display = 'none';
-      });
+      fetch(GAS_URL, { method: 'POST', body: JSON.stringify(saveData) }).then(() => location.reload());
     }
 
     function updateEditSelect() {
@@ -318,7 +334,7 @@
       document.getElementById('eventStart').value = e.start;
       document.getElementById('eventEnd').value = e.end;
       document.getElementById('eventRules').value = e.rules;
-      e.subEvents.forEach(s => addSubEvent(s.type, s.name, s.start, s.end, s.details));
+      e.subEvents.forEach(s => addSubEvent(s.type, s.name, s.start, s.end, s.details, s.img || ''));
       e.gifts.forEach(g => addGift(g));
       document.getElementById('btn-delete').style.display = 'inline-block';
     }
@@ -326,8 +342,7 @@
     function renderSchedule() {
       document.getElementById('currentMonthLabel').textContent = `${currentYear}年 ${currentMonth}月`;
       const days = new Date(currentYear, currentMonth, 0).getDate();
-      const chart = document.getElementById('ganttChart');
-      chart.innerHTML = '';
+      const chart = document.getElementById('ganttChart'); chart.innerHTML = '';
       const grid = `repeat(${days}, 1fr)`;
       const head = document.createElement('div'); head.className = 'gantt-grid gantt-dates'; head.style.gridTemplateColumns = grid;
       for(let i=1; i<=days; i++) head.innerHTML += `<div class="gantt-cell">${i}</div>`;
@@ -337,17 +352,14 @@
       const mE = new Date(currentYear, currentMonth, 0, 23, 59, 59).getTime();
 
       events.forEach(ev => {
-        const eS = new Date(ev.start).getTime();
-        const eE = new Date(ev.end).getTime() + 86400000;
+        const eS = new Date(ev.start).getTime(), eE = new Date(ev.end).getTime() + 86400000;
         if(eE < mS || eS > mE) return;
 
         const row = document.createElement('div'); row.className = 'event-row-wrapper';
         const main = document.createElement('div'); main.className = 'main-event-row'; main.style.gridTemplateColumns = grid;
         for(let i=0; i<days; i++) main.innerHTML += '<div class="gantt-cell"></div>';
-        
         let dS = Math.max(1, new Date(ev.start).getMonth()+1 === currentMonth ? new Date(ev.start).getDate() : 1);
         let dE = Math.min(days, new Date(ev.end).getMonth()+1 === currentMonth ? new Date(ev.end).getDate() : days);
-        
         main.innerHTML += `<div class="event-bar" style="grid-column: ${dS}/${dE+1}; background:${ev.color}; position:absolute; top:0; left:0; width:100%; pointer-events:auto;" onclick='openEventModal(${JSON.stringify(ev)})'>${ev.name}</div>`;
         row.appendChild(main);
 
@@ -372,7 +384,12 @@
     }
 
     function openSubModal(s, col) {
-      document.getElementById('modalBody').innerHTML = `<h3 style="color:${col}">${s.name}</h3><p>期間: ${s.start} 〜 ${s.end}</p><div class="details-box">${s.details || '詳細なし'}</div>`;
+      document.getElementById('modalBody').innerHTML = `
+        <h3 style="color:${col}">${s.name}</h3>
+        <p>期間: ${s.start} 〜 ${s.end}</p>
+        <div class="details-box">${s.details || '詳細なし'}</div>
+        ${s.img ? `<img src="${s.img}" class="modal-image">` : ''}
+      `;
       document.getElementById('modalOverlay').classList.add('active');
     }
 
