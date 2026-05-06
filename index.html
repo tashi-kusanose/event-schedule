@@ -47,17 +47,14 @@
     .btn-danger { background-color: var(--danger); color: white; padding: 8px 12px; font-size: 0.9em; }
     .remove-btn { position: absolute; top: 10px; right: 10px; background-color: transparent; color: var(--danger); border: 1px solid var(--danger); border-radius: 8px; padding: 6px; width: 36px; height: 36px; }
     
+    /* ガントチャート */
     .gantt-wrapper { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; -webkit-overflow-scrolling: touch; }
     .gantt-grid { display: grid; min-width: 800px; border-bottom: 1px dashed var(--border); }
-    
-    /* ★行の高さを見切れないように微調整 */
     .main-event-row { display: grid; min-width: 800px; height: 36px; border-bottom: 1px dashed #f0eeec; } 
     .sub-event-row { display: grid; min-width: 800px; height: 26px; } 
-    
     .gantt-dates { background-color: var(--input-bg); font-weight: 500; text-align: center; font-size: 0.85em; color: var(--text-light); border-bottom: 1px solid var(--border); }
     .gantt-cell { border-right: 1px dashed #f0eeec; padding: 6px 0; text-align: center; }
     
-    /* ★バーの上下の余白と内側の余白(padding)を調整して文字を綺麗に収める */
     .event-bar { margin: 3px 2px; border-radius: 4px; font-size: 0.85em; padding: 4px 8px; display: flex; align-items: center; overflow: hidden; white-space: nowrap; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-weight: bold; line-height: 1.2; }
     .sub-event-row .event-bar { margin: 2px 2px; font-size: 0.75em; padding: 4px 6px; }
 
@@ -262,6 +259,7 @@
     function loadEventForEdit() { const id = document.getElementById('editEventSelect').value; resetForm(false); if(!id) return; const e = events.find(ev => ev.id === id); document.getElementById('eventId').value = e.id; document.getElementById('eventColor').value = e.color; document.getElementById('appName').value = e.appName; toggleAwardSection(); if (e.appName === 'エブリライブ' && e.awards) { if (Array.isArray(e.awards)) e.awards.forEach(a => addAward('normal', a.start, a.end, a.pts)); else { ['normal', 'model', 'music', 'voice', 'comedy', 'student'].forEach(t => { if (e.awards[t]) e.awards[t].forEach(a => addAward(t, a.start, a.end, a.pts)); }); } } document.getElementById('eventName').value = e.name; document.getElementById('isParticipating').checked = e.isParticipating || false; document.getElementById('eventStart').value = e.start; document.getElementById('eventEnd').value = e.end; document.getElementById('eventRules').value = e.rules; e.subEvents.forEach(s => addSubEvent(s.type, s.name, s.start, s.end, s.details, s.img || '')); e.gifts.forEach(g => addGift(g)); document.getElementById('btn-delete').style.display = 'inline-block'; }
     function toggleSubEvents(id) { const el = document.getElementById(id); if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none'; }
 
+    // ★サブイベントの行詰め（パッキング）処理を組み込んだ renderSchedule
     function renderSchedule() {
       document.getElementById('currentMonthLabel').textContent = `${currentYear}年 ${currentMonth}月`; const days = new Date(currentYear, currentMonth, 0).getDate(); const chart = document.getElementById('ganttChart'); chart.innerHTML = ''; const grid = `repeat(${days}, 1fr)`; const head = document.createElement('div'); head.className = 'gantt-grid gantt-dates'; head.style.gridTemplateColumns = grid; for(let i=1; i<=days; i++) head.innerHTML += `<div class="gantt-cell">${i}</div>`; chart.appendChild(head);
       const mS = new Date(currentYear, currentMonth-1, 1).getTime(), mE = new Date(currentYear, currentMonth, 0, 23, 59, 59).getTime();
@@ -271,20 +269,43 @@
         if ((ev.isParticipating && !activeFilters.part) || (!ev.isParticipating && !activeFilters.notPart)) return;
         if (activeFilters.apps.length > 0 && ev.appName && !activeFilters.apps.includes(ev.appName)) return;
         const eS = new Date(ev.start).getTime(), eE = new Date(ev.end).getTime() + 86400000; if(eE < mS || eS > mE) return;
+
         count++; const row = document.createElement('div'); row.className = 'event-row-wrapper'; const main = document.createElement('div'); main.className = 'main-event-row'; main.style.gridTemplateColumns = grid;
         let mainHtml = ''; for(let i=0; i<days; i++) mainHtml += `<div class="gantt-cell" style="grid-column:${i+1};"></div>`;
         let dS = Math.max(1, new Date(ev.start).getMonth()+1 === currentMonth ? new Date(ev.start).getDate() : 1), dE = Math.min(days, new Date(ev.end).getMonth()+1 === currentMonth ? new Date(ev.end).getDate() : days);
         const evJ = JSON.stringify(ev).replace(/'/g, "&#39;").replace(/"/g, "&quot;"); const bg = APP_COLORS[ev.appName] || ev.color || '#8da9c4'; const tx = ev.isParticipating ? 'yellow' : 'white';
         
-        mainHtml += `<div class="event-bar" style="grid-column:${dS} / span ${dE-dS+1}; background:${bg}; color:${tx};" onclick="toggleSubEvents('sub-${ev.id}')"><span class="material-symbols-rounded" style="font-size:18px; margin-right:6px; background:rgba(255,255,255,0.3); border-radius:4px; padding:2px; color:white;" onclick='event.stopPropagation(); openEventModal(${evJ})'>info</span>${ev.name} ${ev.isParticipating ? '<span class="material-symbols-rounded" style="font-size:14px; margin-left:4px;">check_circle</span>' : ''}</div>`;
+        mainHtml += `<div class="event-bar" style="grid-row:1; grid-column:${dS} / span ${dE-dS+1}; background:${bg}; color:${tx};" onclick="toggleSubEvents('sub-${ev.id}')"><span class="material-symbols-rounded" style="font-size:18px; margin-right:6px; background:rgba(255,255,255,0.3); border-radius:4px; padding:2px; color:white;" onclick='event.stopPropagation(); openEventModal(${evJ})'>info</span>${ev.name} ${ev.isParticipating ? '<span class="material-symbols-rounded" style="font-size:14px; margin-left:4px;">check_circle</span>' : ''}</div>`;
         main.innerHTML = mainHtml; row.appendChild(main);
+        
         const subC = document.createElement('div'); subC.id = `sub-${ev.id}`; subC.style.display = 'none';
-        ev.subEvents.forEach(s => {
-          const sS = new Date(s.start).getTime(), sE = new Date(s.end).getTime() + 86400000; if(sE < mS || sS > mE) return;
-          const subR = document.createElement('div'); subR.className = 'sub-event-row'; subR.style.gridTemplateColumns = grid; let subH = ''; for(let i=0; i<days; i++) subH += `<div class="gantt-cell" style="grid-column:${i+1};"></div>`; let sdS = Math.max(1, new Date(s.start).getMonth()+1 === currentMonth ? new Date(s.start).getDate() : 1), sdE = Math.min(days, new Date(s.end).getMonth()+1 === currentMonth ? new Date(s.end).getDate() : days); const sJ = JSON.stringify(s).replace(/'/g, "&#39;").replace(/"/g, "&quot;");
-          subH += `<div class="event-bar" style="grid-column:${sdS} / span ${sdE-sdS+1}; background:${hexToRgba(bg,0.6)}; color:${tx};" onclick='openSubModal(${sJ}, "${bg}")'>[${s.type}] ${s.name}</div>`;
+
+        // ★サブイベントを日付が被らないように同じ行にパッキングする処理
+        const vSubs = ev.subEvents.filter(s=>{const sS=new Date(s.start).getTime(), sE=new Date(s.end).getTime()+86400000; return !(sE<mS||sS>mE);}).sort((a,b)=>new Date(a.start)-new Date(b.start));
+        const subRows = [];
+        vSubs.forEach(s => {
+          const sS = new Date(s.start).getTime();
+          let placed = false;
+          for(let i=0; i<subRows.length; i++) {
+            const lastSE = new Date(subRows[i][subRows[i].length-1].end).getTime()+86400000;
+            // 前のサブイベントが終了した次の日以降なら同じ行に入れられる
+            if(sS >= lastSE) { subRows[i].push(s); placed = true; break; }
+          }
+          if(!placed) subRows.push([s]);
+        });
+
+        // 詰めた行ごとに描画する
+        subRows.forEach(rowSubs => {
+          const subR = document.createElement('div'); subR.className = 'sub-event-row'; subR.style.gridTemplateColumns = grid;
+          let subH = ''; for(let i=0; i<days; i++) subH += `<div class="gantt-cell" style="grid-column:${i+1};"></div>`;
+          rowSubs.forEach(s => {
+            let sdS = Math.max(1, new Date(s.start).getMonth()+1 === currentMonth ? new Date(s.start).getDate() : 1), sdE = Math.min(days, new Date(s.end).getMonth()+1 === currentMonth ? new Date(s.end).getDate() : days);
+            const sJ = JSON.stringify(s).replace(/'/g, "&#39;").replace(/"/g, "&quot;");
+            subH += `<div class="event-bar" style="grid-row:1; grid-column:${sdS} / span ${sdE-sdS+1}; background:${hexToRgba(bg,0.6)}; color:${tx};" onclick='openSubModal(${sJ}, "${bg}")'>[${s.type}] ${s.name}</div>`;
+          });
           subR.innerHTML = subH; subC.appendChild(subR);
         });
+
         if (ev.subEvents.length > 0) row.appendChild(subC); chart.appendChild(row);
       });
       if(count === 0) chart.innerHTML += '<p style="padding:40px 20px; color:var(--text-light); text-align:center;">条件に合うイベントがありません</p>';
