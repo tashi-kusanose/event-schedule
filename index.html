@@ -47,7 +47,6 @@
     .btn-danger { background-color: var(--danger); color: white; padding: 8px 12px; font-size: 0.9em; }
     .remove-btn { position: absolute; top: 10px; right: 10px; background-color: transparent; color: var(--danger); border: 1px solid var(--danger); border-radius: 8px; padding: 6px; width: 36px; height: 36px; }
     
-    /* ガントチャート */
     .gantt-wrapper { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; -webkit-overflow-scrolling: touch; }
     .gantt-grid { display: grid; min-width: 800px; border-bottom: 1px dashed var(--border); }
     .main-event-row { display: grid; min-width: 800px; height: 36px; border-bottom: 1px dashed #f0eeec; } 
@@ -143,7 +142,20 @@
       </div>
       <div class="form-group"><label class="group-label">イベント名</label><div class="name-part-group"><input type="text" id="eventName" required><label class="chk-label"><input type="checkbox" id="isParticipating"> 参加</label></div></div>
       <div class="form-group"><label class="group-label">期間</label><div class="date-group"><input type="date" id="eventStart" required> <span>〜</span> <input type="date" id="eventEnd" required></div></div>
-      <div class="form-group"><label class="group-label">イベント概要・ルール</label><textarea id="eventRules" rows="3"></textarea></div>
+      
+      <!-- ★イベント概要＋画像アップロード機能 -->
+      <div class="form-group">
+        <label class="group-label">イベント概要・ルール</label>
+        <textarea id="eventRules" rows="3"></textarea>
+        <div style="margin-top:10px;">
+          <label style="font-size:12px; color:var(--primary); cursor:pointer; display:inline-flex; align-items:center; gap:4px;">
+            <span class="material-symbols-rounded" style="font-size:18px;">add_photo_alternate</span> 概要に画像を追加 (複数可)
+            <input type="file" accept="image/*" multiple style="display:none;" onchange="handleEventImagesUpload(this)">
+          </label>
+          <div id="eventImagesPreview" style="display:flex; flex-wrap:wrap; margin-top:10px; gap:10px;"></div>
+        </div>
+      </div>
+
       <div id="everyliveAwardsWrapper" style="display: none;">
         <label class="group-label" style="color:var(--primary); font-weight:bold; margin-top:25px; border-bottom:1px solid var(--primary); padding-bottom:5px;"><span class="material-symbols-rounded" style="font-size:18px; vertical-align:middle;">stars</span> Awardポイント</label>
         <div class="award-group-box"><label style="font-size:0.9em; font-weight:bold;">◆ 通常</label><div id="awardContainer_normal" class="dynamic-list" style="background:transparent; border:none; padding:5px 0;"></div><button type="button" class="btn-secondary" onclick="addAward('normal')">+ Award追加</button></div>
@@ -220,8 +232,31 @@
     function closeFilterModal(e) { if(!e || e.target.id === 'filterModalOverlay' || e.target.classList.contains('material-symbols-rounded')) document.getElementById('filterModalOverlay').classList.remove('active'); }
     function openGuideModal() { document.getElementById('guideModalOverlay').classList.add('active'); }
     function closeGuideModal(e) { if(!e || e.target.id === 'guideModalOverlay' || e.target.classList.contains('material-symbols-rounded')) document.getElementById('guideModalOverlay').classList.remove('active'); }
-
     function applyFilters() { activeFilters.part = document.getElementById('f-part').checked; activeFilters.notPart = document.getElementById('f-notpart').checked; const appChks = document.querySelectorAll('.filter-app-chk'); const selectedApps = Array.from(appChks).filter(chk => chk.checked).map(chk => chk.value); activeFilters.apps = (selectedApps.length === appChks.length || selectedApps.length === 0) ? [] : selectedApps; const btn = document.getElementById('filterBtn'); if (!activeFilters.part || !activeFilters.notPart || activeFilters.apps.length > 0) btn.classList.add('active-filter'); else btn.classList.remove('active-filter'); closeFilterModal(); renderSchedule(); }
+
+    // ★概要画像用のアップロード処理
+    function handleEventImagesUpload(input) {
+      if(!input.files || input.files.length === 0) return;
+      const container = document.getElementById('eventImagesPreview');
+      Array.from(input.files).forEach(file => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const img = new Image();
+          img.onload = function() {
+            const canvas = document.createElement('canvas'); let w = img.width, h = img.height;
+            if (w > 600) { h *= 600 / w; w = 600; } canvas.width = w; canvas.height = h;
+            const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, w, h);
+            const base64 = canvas.toDataURL('image/jpeg', 0.7);
+            const div = document.createElement('div'); div.style.cssText = 'position:relative; width:80px; height:80px;';
+            div.innerHTML = `<img src="${base64}" style="width:100%; height:100%; object-fit:cover; border-radius:8px; border:1px solid var(--border);"><button type="button" onclick="this.parentElement.remove()" style="position:absolute; top:-5px; right:-5px; background:var(--danger); color:white; border-radius:50%; width:20px; height:20px; border:none; cursor:pointer; font-size:12px; padding:0; display:flex; align-items:center; justify-content:center;">×</button><input type="hidden" class="event-image-data" value="${base64}">`;
+            container.appendChild(div);
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+      input.value = ''; 
+    }
 
     function addSubEvent(type='ラウンド', name='', start='', end='', details='', imgData='') {
       const container = document.getElementById('subEventsContainer'); const row = document.createElement('div'); row.className = 'sub-event-card sub-event-row-input';
@@ -243,7 +278,8 @@
 
     function saveEvent() {
       const id = document.getElementById('eventId').value || Date.now().toString(); const app = document.getElementById('appName').value;
-      const ev = { id, color: document.getElementById('eventColor').value, appName: app, name: document.getElementById('eventName').value, start: document.getElementById('eventStart').value, end: document.getElementById('eventEnd').value, rules: document.getElementById('eventRules').value, isParticipating: document.getElementById('isParticipating').checked, subEvents: [], gifts: [], awards: { normal: [], model: [], music: [], voice: [], comedy: [], student: [] } };
+      const evImages = []; document.querySelectorAll('.event-image-data').forEach(inp => evImages.push(inp.value));
+      const ev = { id, color: document.getElementById('eventColor').value, appName: app, name: document.getElementById('eventName').value, start: document.getElementById('eventStart').value, end: document.getElementById('eventEnd').value, rules: document.getElementById('eventRules').value, images: evImages, isParticipating: document.getElementById('isParticipating').checked, subEvents: [], gifts: [], awards: { normal: [], model: [], music: [], voice: [], comedy: [], student: [] } };
       if(!ev.name || !ev.start || !app) return alert('必須項目を確認してください');
       if (app === 'エブリライブ') { ['normal', 'model', 'music', 'voice', 'comedy', 'student'].forEach(t => { document.getElementById(`awardContainer_${t}`).querySelectorAll('.award-row-input').forEach(r => { const s = parseInt(r.querySelector('.award-start').value), e = parseInt(r.querySelector('.award-end').value), p = r.querySelector('.award-pts').value; if (p) ev.awards[t].push({ start: s, end: e, pts: p }); }); ev.awards[t].sort((a, b) => a.start - b.start); }); }
       document.querySelectorAll('.sub-event-row-input').forEach(r => { ev.subEvents.push({ type: r.querySelector('.sub-type').value, name: r.querySelector('.sub-name').value, start: r.querySelector('.sub-start').value, end: r.querySelector('.sub-end').value, details: r.querySelector('.sub-details').value, img: r.querySelector('.sub-image-base64').value }); });
@@ -255,11 +291,22 @@
     }
 
     function deleteEvent() { if(!confirm('削除しますか？')) return; events = events.filter(e => e.id !== document.getElementById('eventId').value); fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ password: currentPassword, events: events }) }).then(() => location.reload()); }
-    function resetForm(clearSelect = true) { document.getElementById('eventForm').reset(); document.getElementById('eventId').value = ''; document.getElementById('eventColor').value = '#8da9c4'; document.getElementById('subEventsContainer').innerHTML = ''; document.getElementById('giftsContainer').innerHTML = ''; ['normal', 'model', 'music', 'voice', 'comedy', 'student'].forEach(t => { const el = document.getElementById(`awardContainer_${t}`); if(el) el.innerHTML = ''; }); document.getElementById('everyliveAwardsWrapper').style.display = 'none'; document.getElementById('btn-delete').style.display = 'none'; if(clearSelect && document.getElementById('editEventSelect')) document.getElementById('editEventSelect').value = ''; }
-    function loadEventForEdit() { const id = document.getElementById('editEventSelect').value; resetForm(false); if(!id) return; const e = events.find(ev => ev.id === id); document.getElementById('eventId').value = e.id; document.getElementById('eventColor').value = e.color; document.getElementById('appName').value = e.appName; toggleAwardSection(); if (e.appName === 'エブリライブ' && e.awards) { if (Array.isArray(e.awards)) e.awards.forEach(a => addAward('normal', a.start, a.end, a.pts)); else { ['normal', 'model', 'music', 'voice', 'comedy', 'student'].forEach(t => { if (e.awards[t]) e.awards[t].forEach(a => addAward(t, a.start, a.end, a.pts)); }); } } document.getElementById('eventName').value = e.name; document.getElementById('isParticipating').checked = e.isParticipating || false; document.getElementById('eventStart').value = e.start; document.getElementById('eventEnd').value = e.end; document.getElementById('eventRules').value = e.rules; e.subEvents.forEach(s => addSubEvent(s.type, s.name, s.start, s.end, s.details, s.img || '')); e.gifts.forEach(g => addGift(g)); document.getElementById('btn-delete').style.display = 'inline-block'; }
+    function resetForm(clearSelect = true) { document.getElementById('eventForm').reset(); document.getElementById('eventId').value = ''; document.getElementById('eventColor').value = '#8da9c4'; document.getElementById('subEventsContainer').innerHTML = ''; document.getElementById('giftsContainer').innerHTML = ''; document.getElementById('eventImagesPreview').innerHTML = ''; ['normal', 'model', 'music', 'voice', 'comedy', 'student'].forEach(t => { const el = document.getElementById(`awardContainer_${t}`); if(el) el.innerHTML = ''; }); document.getElementById('everyliveAwardsWrapper').style.display = 'none'; document.getElementById('btn-delete').style.display = 'none'; if(clearSelect && document.getElementById('editEventSelect')) document.getElementById('editEventSelect').value = ''; }
+    
+    function loadEventForEdit() { 
+      const id = document.getElementById('editEventSelect').value; resetForm(false); if(!id) return; 
+      const e = events.find(ev => ev.id === id); document.getElementById('eventId').value = e.id; document.getElementById('eventColor').value = e.color; document.getElementById('appName').value = e.appName; 
+      toggleAwardSection(); if (e.appName === 'エブリライブ' && e.awards) { if (Array.isArray(e.awards)) e.awards.forEach(a => addAward('normal', a.start, a.end, a.pts)); else { ['normal', 'model', 'music', 'voice', 'comedy', 'student'].forEach(t => { if (e.awards[t]) e.awards[t].forEach(a => addAward(t, a.start, a.end, a.pts)); }); } } 
+      document.getElementById('eventName').value = e.name; document.getElementById('isParticipating').checked = e.isParticipating || false; document.getElementById('eventStart').value = e.start; document.getElementById('eventEnd').value = e.end; document.getElementById('eventRules').value = e.rules; 
+      
+      const imgContainer = document.getElementById('eventImagesPreview');
+      if(e.images && e.images.length > 0) { e.images.forEach(base64 => { const div = document.createElement('div'); div.style.cssText = 'position:relative; width:80px; height:80px;'; div.innerHTML = `<img src="${base64}" style="width:100%; height:100%; object-fit:cover; border-radius:8px; border:1px solid var(--border);"><button type="button" onclick="this.parentElement.remove()" style="position:absolute; top:-5px; right:-5px; background:var(--danger); color:white; border-radius:50%; width:20px; height:20px; border:none; cursor:pointer; font-size:12px; padding:0; display:flex; align-items:center; justify-content:center;">×</button><input type="hidden" class="event-image-data" value="${base64}">`; imgContainer.appendChild(div); }); }
+      
+      e.subEvents.forEach(s => addSubEvent(s.type, s.name, s.start, s.end, s.details, s.img || '')); e.gifts.forEach(g => addGift(g)); document.getElementById('btn-delete').style.display = 'inline-block'; 
+    }
+    
     function toggleSubEvents(id) { const el = document.getElementById(id); if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none'; }
 
-    // ★サブイベントの行詰め（パッキング）処理を組み込んだ renderSchedule
     function renderSchedule() {
       document.getElementById('currentMonthLabel').textContent = `${currentYear}年 ${currentMonth}月`; const days = new Date(currentYear, currentMonth, 0).getDate(); const chart = document.getElementById('ganttChart'); chart.innerHTML = ''; const grid = `repeat(${days}, 1fr)`; const head = document.createElement('div'); head.className = 'gantt-grid gantt-dates'; head.style.gridTemplateColumns = grid; for(let i=1; i<=days; i++) head.innerHTML += `<div class="gantt-cell">${i}</div>`; chart.appendChild(head);
       const mS = new Date(currentYear, currentMonth-1, 1).getTime(), mE = new Date(currentYear, currentMonth, 0, 23, 59, 59).getTime();
@@ -280,21 +327,14 @@
         
         const subC = document.createElement('div'); subC.id = `sub-${ev.id}`; subC.style.display = 'none';
 
-        // ★サブイベントを日付が被らないように同じ行にパッキングする処理
         const vSubs = ev.subEvents.filter(s=>{const sS=new Date(s.start).getTime(), sE=new Date(s.end).getTime()+86400000; return !(sE<mS||sS>mE);}).sort((a,b)=>new Date(a.start)-new Date(b.start));
         const subRows = [];
         vSubs.forEach(s => {
-          const sS = new Date(s.start).getTime();
-          let placed = false;
-          for(let i=0; i<subRows.length; i++) {
-            const lastSE = new Date(subRows[i][subRows[i].length-1].end).getTime()+86400000;
-            // 前のサブイベントが終了した次の日以降なら同じ行に入れられる
-            if(sS >= lastSE) { subRows[i].push(s); placed = true; break; }
-          }
+          const sS = new Date(s.start).getTime(); let placed = false;
+          for(let i=0; i<subRows.length; i++) { const lastSE = new Date(subRows[i][subRows[i].length-1].end).getTime()+86400000; if(sS >= lastSE) { subRows[i].push(s); placed = true; break; } }
           if(!placed) subRows.push([s]);
         });
 
-        // 詰めた行ごとに描画する
         subRows.forEach(rowSubs => {
           const subR = document.createElement('div'); subR.className = 'sub-event-row'; subR.style.gridTemplateColumns = grid;
           let subH = ''; for(let i=0; i<days; i++) subH += `<div class="gantt-cell" style="grid-column:${i+1};"></div>`;
@@ -305,13 +345,13 @@
           });
           subR.innerHTML = subH; subC.appendChild(subR);
         });
-
         if (ev.subEvents.length > 0) row.appendChild(subC); chart.appendChild(row);
       });
       if(count === 0) chart.innerHTML += '<p style="padding:40px 20px; color:var(--text-light); text-align:center;">条件に合うイベントがありません</p>';
     }
 
     function openEventModal(e) {
+      let evImagesHtml = ''; if(e.images && e.images.length > 0) { evImagesHtml = '<div style="margin-top:15px; display:flex; flex-direction:column; gap:10px;">' + e.images.map(img => `<img src="${img}" class="modal-image" style="width:100%;">`).join('') + '</div>'; }
       let gH = (e.gifts && e.gifts.length > 0) ? '<h4>ギフト</h4><ul>' + e.gifts.map(g => `<li>${g.name} (${g.coin}c${g.type==='通常'?' / '+g.point+'pt':''})${g.type==='ランダム'?'<ul>'+g.randomItems.map(r=>`<li>${r.resultName}: ${r.point}pt</li>`).join('')+'</ul>':''}</li>`).join('') + '</ul>' : '';
       let awardTabHtml = '';
       if(e.appName === 'エブリライブ' && e.awards) {
@@ -327,7 +367,7 @@
         if (tabs) awardTabHtml = `<h4 style="margin-top:20px; margin-bottom:5px;">Awardポイント</h4><div class="award-tab-wrapper">${tabs}</div><div class="award-panes" style="margin-top:10px;">${panes}</div>`;
       }
       let partHtml = `<label style="display:flex; align-items:center; gap:8px; background:var(--input-bg); padding:12px 15px; border-radius:8px; border:2px solid ${e.isParticipating ? 'var(--primary)' : 'var(--border)'}; margin-bottom:15px; cursor:pointer;"><input type="checkbox" style="width:24px; height:24px;" ${e.isParticipating ? 'checked' : ''} onchange="toggleEventParticipation('${e.id}', this.checked, this)"><span style="font-weight:bold; font-size:1.1em; color:${e.isParticipating ? 'var(--primary)' : 'var(--text-main)'};">このイベントに参加する</span></label>`;
-      document.getElementById('modalBody').innerHTML = `<h3>${e.name}</h3>${partHtml}<p>アプリ: ${e.appName}</p><p>期間: ${e.start} 〜 ${e.end}</p><div class="details-box">${e.rules || '概要なし'}</div>${awardTabHtml}${gH}`;
+      document.getElementById('modalBody').innerHTML = `<h3>${e.name}</h3>${partHtml}<p>アプリ: ${e.appName}</p><p>期間: ${e.start} 〜 ${e.end}</p><div class="details-box">${e.rules || '概要なし'}${evImagesHtml}</div>${awardTabHtml}${gH}`;
       document.getElementById('modalOverlay').classList.add('active');
     }
 
