@@ -143,7 +143,6 @@
       <div class="form-group"><label class="group-label">イベント名</label><div class="name-part-group"><input type="text" id="eventName" required><label class="chk-label"><input type="checkbox" id="isParticipating"> 参加</label></div></div>
       <div class="form-group"><label class="group-label">期間</label><div class="date-group"><input type="date" id="eventStart" required> <span>〜</span> <input type="date" id="eventEnd" required></div></div>
       
-      <!-- ★イベント概要＋画像アップロード機能 -->
       <div class="form-group">
         <label class="group-label">イベント概要・ルール</label>
         <textarea id="eventRules" rows="3"></textarea>
@@ -234,7 +233,6 @@
     function closeGuideModal(e) { if(!e || e.target.id === 'guideModalOverlay' || e.target.classList.contains('material-symbols-rounded')) document.getElementById('guideModalOverlay').classList.remove('active'); }
     function applyFilters() { activeFilters.part = document.getElementById('f-part').checked; activeFilters.notPart = document.getElementById('f-notpart').checked; const appChks = document.querySelectorAll('.filter-app-chk'); const selectedApps = Array.from(appChks).filter(chk => chk.checked).map(chk => chk.value); activeFilters.apps = (selectedApps.length === appChks.length || selectedApps.length === 0) ? [] : selectedApps; const btn = document.getElementById('filterBtn'); if (!activeFilters.part || !activeFilters.notPart || activeFilters.apps.length > 0) btn.classList.add('active-filter'); else btn.classList.remove('active-filter'); closeFilterModal(); renderSchedule(); }
 
-    // ★概要画像用のアップロード処理
     function handleEventImagesUpload(input) {
       if(!input.files || input.files.length === 0) return;
       const container = document.getElementById('eventImagesPreview');
@@ -309,17 +307,29 @@
 
     function renderSchedule() {
       document.getElementById('currentMonthLabel').textContent = `${currentYear}年 ${currentMonth}月`; const days = new Date(currentYear, currentMonth, 0).getDate(); const chart = document.getElementById('ganttChart'); chart.innerHTML = ''; const grid = `repeat(${days}, 1fr)`; const head = document.createElement('div'); head.className = 'gantt-grid gantt-dates'; head.style.gridTemplateColumns = grid; for(let i=1; i<=days; i++) head.innerHTML += `<div class="gantt-cell">${i}</div>`; chart.appendChild(head);
-      const mS = new Date(currentYear, currentMonth-1, 1).getTime(), mE = new Date(currentYear, currentMonth, 0, 23, 59, 59).getTime();
-      const sorted = [...events].sort((a, b) => new Date(a.start) - new Date(b.start));
+      
+      const curYM = `${currentYear}-${String(currentMonth).padStart(2,'0')}`;
+      const getS = d => { const [y,m,x]=d.split('-'); return new Date(y,m-1,x).getTime(); };
+      const getE = d => { const [y,m,x]=d.split('-'); return new Date(y,m-1,x,23,59,59).getTime(); };
+
+      const mS = new Date(currentYear, currentMonth-1, 1).getTime();
+      const mE = new Date(currentYear, currentMonth, 0, 23, 59, 59).getTime();
+
+      const sorted = [...events].sort((a, b) => getS(a.start) - getS(b.start));
+
       let count = 0;
       sorted.forEach(ev => {
         if ((ev.isParticipating && !activeFilters.part) || (!ev.isParticipating && !activeFilters.notPart)) return;
         if (activeFilters.apps.length > 0 && ev.appName && !activeFilters.apps.includes(ev.appName)) return;
-        const eS = new Date(ev.start).getTime(), eE = new Date(ev.end).getTime() + 86400000; if(eE < mS || eS > mE) return;
+        
+        const eS = getS(ev.start), eE = getE(ev.end); 
+        if(eE < mS || eS > mE) return;
 
         count++; const row = document.createElement('div'); row.className = 'event-row-wrapper'; const main = document.createElement('div'); main.className = 'main-event-row'; main.style.gridTemplateColumns = grid;
         let mainHtml = ''; for(let i=0; i<days; i++) mainHtml += `<div class="gantt-cell" style="grid-column:${i+1};"></div>`;
-        let dS = Math.max(1, new Date(ev.start).getMonth()+1 === currentMonth ? new Date(ev.start).getDate() : 1), dE = Math.min(days, new Date(ev.end).getMonth()+1 === currentMonth ? new Date(ev.end).getDate() : days);
+        
+        let dS = Math.max(1, ev.start.startsWith(curYM) ? parseInt(ev.start.slice(-2)) : 1);
+        let dE = Math.min(days, ev.end.startsWith(curYM) ? parseInt(ev.end.slice(-2)) : days);
         const evJ = JSON.stringify(ev).replace(/'/g, "&#39;").replace(/"/g, "&quot;"); const bg = APP_COLORS[ev.appName] || ev.color || '#8da9c4'; const tx = ev.isParticipating ? 'yellow' : 'white';
         
         mainHtml += `<div class="event-bar" style="grid-row:1; grid-column:${dS} / span ${dE-dS+1}; background:${bg}; color:${tx};" onclick="toggleSubEvents('sub-${ev.id}')"><span class="material-symbols-rounded" style="font-size:18px; margin-right:6px; background:rgba(255,255,255,0.3); border-radius:4px; padding:2px; color:white;" onclick='event.stopPropagation(); openEventModal(${evJ})'>info</span>${ev.name} ${ev.isParticipating ? '<span class="material-symbols-rounded" style="font-size:14px; margin-left:4px;">check_circle</span>' : ''}</div>`;
@@ -327,11 +337,17 @@
         
         const subC = document.createElement('div'); subC.id = `sub-${ev.id}`; subC.style.display = 'none';
 
-        const vSubs = ev.subEvents.filter(s=>{const sS=new Date(s.start).getTime(), sE=new Date(s.end).getTime()+86400000; return !(sE<mS||sS>mE);}).sort((a,b)=>new Date(a.start)-new Date(b.start));
+        const vSubs = ev.subEvents.filter(s=>{
+          const sS = getS(s.start), sE = getE(s.end); 
+          return !(sE < mS || sS > mE);
+        }).sort((a,b)=> getS(a.start) - getS(b.start));
+        
         const subRows = [];
         vSubs.forEach(s => {
-          const sS = new Date(s.start).getTime(); let placed = false;
-          for(let i=0; i<subRows.length; i++) { const lastSE = new Date(subRows[i][subRows[i].length-1].end).getTime()+86400000; if(sS >= lastSE) { subRows[i].push(s); placed = true; break; } }
+          let placed = false;
+          for(let i=0; i<subRows.length; i++) { 
+            if(s.start > subRows[i][subRows[i].length-1].end) { subRows[i].push(s); placed = true; break; } 
+          }
           if(!placed) subRows.push([s]);
         });
 
@@ -339,7 +355,8 @@
           const subR = document.createElement('div'); subR.className = 'sub-event-row'; subR.style.gridTemplateColumns = grid;
           let subH = ''; for(let i=0; i<days; i++) subH += `<div class="gantt-cell" style="grid-column:${i+1};"></div>`;
           rowSubs.forEach(s => {
-            let sdS = Math.max(1, new Date(s.start).getMonth()+1 === currentMonth ? new Date(s.start).getDate() : 1), sdE = Math.min(days, new Date(s.end).getMonth()+1 === currentMonth ? new Date(s.end).getDate() : days);
+            let sdS = Math.max(1, s.start.startsWith(curYM) ? parseInt(s.start.slice(-2)) : 1);
+            let sdE = Math.min(days, s.end.startsWith(curYM) ? parseInt(s.end.slice(-2)) : days);
             const sJ = JSON.stringify(s).replace(/'/g, "&#39;").replace(/"/g, "&quot;");
             subH += `<div class="event-bar" style="grid-row:1; grid-column:${sdS} / span ${sdE-sdS+1}; background:${hexToRgba(bg,0.6)}; color:${tx};" onclick='openSubModal(${sJ}, "${bg}")'>[${s.type}] ${s.name}</div>`;
           });
